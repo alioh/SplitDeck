@@ -1,0 +1,9 @@
+# downloaded by `npm run setup`
+bin/
+
+# editor / tool config
+.claude/
+
+node_modules/
+*.log
+.DS_Store

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SplitDeck</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111'/%3E%3Crect x='5' y='5' width='13' height='22' rx='2' fill='%23ff4d5e'/%3E%3Crect x='20' y='5' width='7' height='10' rx='2' fill='%23fff'/%3E%3Crect x='20' y='17' width='7' height='10' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="edge"></div>
+<button id="showUiBtn" title="Show the top bar (H)">☰ Show UI</button>
+<header class="topbar" id="topbar">
+  <div class="brand"><span class="dot"></span>SplitDeck</div>
+  <form id="addForm" class="addform" autocomplete="off">
+    <input id="urlInput" type="text" spellcheck="false" placeholder="Paste a YouTube, TikTok, Twitch, Kick… link and press Enter">
+    <button type="submit" id="addBtn">+ Add</button>
+  </form>
+  <div class="spacer"></div>
+  <span class="count" id="count">0 / 8</span>
+  <button id="liveBtn" title="Browse live streams">📡 Live</button>
+  <div class="pop-wrap">
+    <button id="layoutBtn" title="Change layout">Layout ▾</button>
+    <div class="popover" id="layoutPop" hidden></div>
+  </div>
+  <button id="muteAllBtn" title="Mute / unmute everything">🔊 All</button>
+  <button id="resetBtn" title="Close all streams and start fresh">Reset</button>
+  <button id="immersiveBtn" title="Hide this bar (H)">Hide UI</button>
+</header>
+<main id="stage"></main>
+<aside id="live" class="livepanel" hidden>
+  <div class="lhead"><b>Live now</b><span class="spacer"></span><button id="liveRefresh" title="Refresh">⟳</button><button id="liveClose" title="Close">✕</button></div>
+  <div class="ltabs" id="liveTabs">
+    <button data-site="twitch" class="on">Twitch</button><button data-site="kick">Kick</button><button data-site="youtube">YouTube</button><button data-site="tiktok">TikTok</button>
+  </div>
+  <div class="lctl" id="liveCtl"></div>
+  <div class="llist" id="liveList"></div>
+</aside>
+<div id="empty" class="empty">
+  <h1>Paste a link to start</h1>
+  <p>Up to 8 players. Only the video is shown — no chat, no side bars.</p>
+  <p class="small">YouTube · TikTok LIVE · Twitch · Kick · and most sites yt-dlp supports</p>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="vendor/hls.min.js"></script>
+<script src="vendor/mpegts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "splitdeck",
+  "version": "1.0.0",
+  "description": "A local multi-player media viewer: up to 8 resizable, swappable players showing only the video.",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node setup.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
