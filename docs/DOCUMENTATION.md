@@ -297,11 +297,14 @@ SplitDeck/
 ├── setup.js             Downloads yt-dlp into bin/
 ├── start.bat            Windows launcher
 ├── package.json
+├── assets/
+│   └── social-preview.png  1280x640 repository image
 ├── docs/
 │   └── DOCUMENTATION.md This file
 └── public/
     ├── index.html       Page structure
     ├── style.css        Styles
+    ├── logo.svg         Logo and favicon
     ├── app.js           All client logic
     └── vendor/          hls.js and mpegts.js
 ```

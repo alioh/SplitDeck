@@ -1,4 +1,8 @@
-# SplitDeck
+<p align="center">
+  <img src="public/logo.svg" alt="SplitDeck logo" width="120">
+</p>
+
+<h1 align="center">SplitDeck</h1>
 
 A local media player with up to **8 players on one screen**. It shows only the video: no chat, no side bars, no clutter.
 
