@@ -244,9 +244,22 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | TikTok LIVE | Read directly from TikTok's web API (yt-dlp as a fallback). |
 | Twitch | yt-dlp. |
 | Kick | yt-dlp. |
+| X (Twitter) | yt-dlp. Works for live broadcasts and their replays (`x.com/i/broadcasts/…`) and for videos in posts. Audio-only X Spaces play as sound with no picture, and usually need a login (see cookies below). |
+| Facebook | Best effort. SplitDeck first asks yt-dlp; if that fails (it often does without a login), it shows Facebook's own embedded player, which works for public videos and live streams. See [Facebook and logins](#facebook-and-logins). |
 | Other sites | Anything [yt-dlp supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) that yields an HLS, MP4 or FLV stream. |
 
 Paste a link and SplitDeck decides how to play it. If a site works in yt-dlp, it should work here.
+
+The Live browser lists Twitch, Kick, YouTube and TikTok only. X and Facebook have no public list of live streams, so for those you paste a link.
+
+### Facebook and logins
+
+Facebook and some X content need you to be signed in, and yt-dlp's Facebook support changes often. What SplitDeck does:
+
+1. It tries yt-dlp first. If that works you get the normal clean player with the full toolbar.
+2. If it fails, it shows Facebook's **embedded player** inside the tile. That works for **public** videos and live streams. It is Facebook's own player, so SplitDeck's volume, mute, speed and quality controls do not apply to it; use the controls inside it. A private or removed video shows Facebook's own "Video unavailable" message.
+
+To let yt-dlp use your login (for example for content that needs an account), put a cookies file in the project folder named `cookies.txt` (Netscape format, exported from your browser with a cookie-export extension), or point the `COOKIES` variable at it. Keep this file private: it is excluded from Git and never uploaded anywhere, but anyone with the file can use your logins.
 
 ## 12. Configuration
 
@@ -255,6 +268,7 @@ Environment variables, set before `npm start`:
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` | `8787` | Port the server listens on. |
+| `COOKIES` | `cookies.txt` if it exists | Path to a Netscape-format cookies file passed to yt-dlp, for sites that need a login. Optional. |
 | `YTDLP` | auto | Path to a yt-dlp executable. By default SplitDeck uses `bin/yt-dlp` (from `npm run setup`), and otherwise `yt-dlp` on your `PATH`. |
 
 Examples:
@@ -275,7 +289,7 @@ The page talks to the local server with these endpoints. They are internal and m
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/resolve?url=…[&embed=1]` | Turns a link into something the page can play. Returns `type` (`hls`, `file`, `flv` or `youtube`), a playable `url`, a list of fallback `sources`, `title`, `live`, and for YouTube `captions`. `embed=1` forces YouTube's embedded player. |
+| `GET /api/resolve?url=…[&embed=1]` | Turns a link into something the page can play. Returns `type` (`hls`, `file`, `flv`, `youtube` or `embed`), a playable `url`, a list of fallback `sources`, `title`, `live`, and for YouTube `captions`. `embed=1` forces YouTube's embedded player. |
 | `GET /api/live?site=…` | Lists live streams for `twitch`, `kick` or `youtube`, or checks usernames for `tiktok`. Parameters: `lang`, `cat`, `q` (search), `after` (paging token), `users` (TikTok). Returns `items` and `next`. |
 | `GET /api/categories?site=…[&q=…]` | Category list for `twitch`, `kick` or `youtube`, optionally filtered by `q`. |
 | `GET /api/languages?site=…` | Languages available for `twitch` or `kick`. |
@@ -300,6 +314,8 @@ If the first stream format fails or does not start within 15 seconds, the page t
 - **TikTok LIVE** is read from TikTok's web API first, because yt-dlp's live detection is sometimes wrong. yt-dlp is used if that fails.
 - **YouTube** exposes video and audio as separate HLS streams. The server builds one master playlist from them so hls.js can offer quality levels and audio tracks, and returns the caption files so the page can show them. If that fails it returns the embed instead.
 - **Kick** blocks requests from Node.js, so the server uses the system `curl` for Kick's public listing.
+- **X** is handled by yt-dlp. A post with several videos plays the first one. If a result has no video at all (for example an audio-only Space), the best audio stream is played.
+- **Facebook** is tried with yt-dlp first and falls back to Facebook's embedded player (`type: embed`) when extraction fails.
 - **Twitch** listings use Twitch's public web API. Because it limits each request to 30 results and blocks "next page" tokens, the server builds a larger list from many parallel requests (one per top category, or per language when a category is chosen), sorts by viewers and pages through it.
 
 ### Live browser paging
@@ -344,6 +360,8 @@ SplitDeck/
 | No sound | Players after the first start muted. Use the speaker, **All**, or **Solo**. Browsers may also block sound until you click the page. |
 | A YouTube video shows YouTube's overlays | The clean player could not load it and the embed was used. Try **⟳**, or update yt-dlp. |
 | Captions button missing | The video has no captions, or the player is YouTube's embed. |
+| A Facebook link shows "Video unavailable" | The video is private, removed or not public. The embedded player can only show public videos. |
+| An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
 | Everything is stuck or wrong | Click **Reset**, then press **Ctrl+F5**. |
 
 ## 17. Limitations
@@ -355,10 +373,13 @@ SplitDeck/
 - Kick's language filter scans pages, so rare languages can be slow on the first load.
 - SplitDeck relies on public web endpoints and yt-dlp, not official APIs. Sites can change them without notice, which can break a feature until the project is updated.
 - Some content cannot be played: private, age-restricted, region-locked or login-only streams.
+- Facebook is best effort. The embedded fallback has no SplitDeck volume, mute, speed or quality controls.
+- X and Facebook have no entries in the Live browser.
 
 ## 18. Privacy and security
 
 - The server runs only on your computer and listens on `127.0.0.1`.
+- Your optional `cookies.txt` stays on your computer and is excluded from Git. Treat it like a password.
 - Everything you save (players, layouts, watchlist) stays in your browser. Nothing is sent to a SplitDeck server.
 - Your computer requests media and listings directly from the sites you use, as a normal browser would.
 - The media proxy only accepts session IDs that your own server issued, and it is reachable only from your computer.

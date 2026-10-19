@@ -7,3 +7,6 @@ bin/
 node_modules/
 *.log
 .DS_Store
+
+# login cookies (never commit)
+cookies*.txt

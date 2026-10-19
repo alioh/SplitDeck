@@ -11,6 +11,8 @@ const PUBLIC = path.join(__dirname, 'public');
 // yt-dlp: $YTDLP, else the copy downloaded by `npm run setup`, else whatever is on PATH
 const BUNDLED = path.join(__dirname, 'bin', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
 const YTDLP = process.env.YTDLP || (fs.existsSync(BUNDLED) ? BUNDLED : 'yt-dlp');
+// optional: a Netscape-format cookies file, from $COOKIES or ./cookies.txt (git-ignored). yt-dlp only sends each cookie to its own site.
+const COOKIES_FILE = process.env.COOKIES || (fs.existsSync(path.join(__dirname, 'cookies.txt')) ? path.join(__dirname, 'cookies.txt') : '');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 const MIME = {
@@ -23,7 +25,7 @@ const sessions = new Map();
 
 function ytdlp(args, timeout = 45000) {
   return new Promise((resolve, reject) => {
-    execFile(YTDLP, args, { timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+    execFile(YTDLP, COOKIES_FILE ? ['--cookies', COOKIES_FILE, ...args] : args, { timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
       if (err) {
         const msg = (stderr || err.message || '').split('\n').filter((l) => l.includes('ERROR')).pop() || stderr || err.message;
         return reject(new Error(msg.replace(/^ERROR:\s*/, '').trim()));
@@ -63,6 +65,10 @@ function pickFormats(info) {
   if (file) out.push({ f: file, kind: 'file' });
   const flv = best(fmts.filter((f) => f.ext === 'flv'));
   if (flv) out.push({ f: flv, kind: 'flv' });
+  if (!out.length) {
+    const aud = fmts.filter((f) => f.vcodec === 'none' && f.acodec !== 'none').sort((x, y) => (y.abr || y.tbr || 0) - (x.abr || x.tbr || 0))[0];
+    if (aud) out.push({ f: aud, kind: proto(aud).startsWith('m3u8') ? 'hls' : 'file' });
+  }
   return out;
 }
 
@@ -160,6 +166,14 @@ async function resolveYoutubeNative(u) {
   return { type: 'hls', url, sources: [{ type: 'hls', url }], title: info.title || 'YouTube', live: !!info.is_live, source: 'YouTube', native: true, captions: caps.slice(0, 40) };
 }
 
+// Facebook rarely lets yt-dlp in without a login, so when extraction fails we fall back to Facebook's own
+// embedded player, which works for public videos and live streams without signing in.
+const isFacebook = (u) => /^https?:\/\/([\w-]+\.)*(facebook\.com|fb\.watch|fb\.com)\//i.test(u);
+const facebookEmbed = (u) => ({
+  type: 'embed', source: 'Facebook (embedded)', title: 'Facebook video', live: false,
+  url: 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(u) + '&show_text=false&autoplay=true&allowfullscreen=true&width=1280',
+});
+
 async function resolve(inputUrl, embed = false) {
   let u = inputUrl.trim();
   if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
@@ -177,10 +191,13 @@ async function resolve(inputUrl, embed = false) {
     try { return await resolveTiktokLive(ttUser); }
     catch (e) { console.log('tiktok native failed:', e.message, '- trying yt-dlp'); }
   }
-  const out = await ytdlp(['-J', '--no-playlist', '--no-warnings', u]);
-  const info = JSON.parse(out);
+  let out;
+  try { out = await ytdlp(['-J', '--no-playlist', '--no-warnings', u]); }
+  catch (e) { if (isFacebook(u)) return facebookEmbed(u); throw e; }
+  let info = JSON.parse(out);
+  if (info && info._type === 'playlist') info = (info.entries || []).find(Boolean) || info;
   const picks = pickFormats(info);
-  if (!picks.length) throw new Error('No playable video stream found');
+  if (!picks.length) { if (isFacebook(u)) return facebookEmbed(u); throw new Error('No playable video stream found'); }
   const sid = crypto.randomBytes(8).toString('hex');
   const headers = Object.assign({ 'User-Agent': UA }, picks[0].f.http_headers || info.http_headers || {});
   sessions.set(sid, headers);

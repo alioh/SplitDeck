@@ -314,6 +314,7 @@ async function load(t, direct = false) {
   t.paused = false; setPlayIcon(t); t.ytDur = 0; t.ytCur = 0;
   try {
     if (data.type === 'youtube') mountYoutube(t, data.id);
+    else if (data.type === 'embed') mountEmbed(t, data.url);
     else mountVideo(t, data);
   } catch (e) { setStatus(t, 'err', e.message); }
 }
@@ -404,6 +405,15 @@ function mountVideo(t, data, i = 0) {
     p.on(mpegts.Events.ERROR, (_, d) => fail('Stream error or ended' + (d ? ' (' + d + ')' : '')));
   } else { v.src = src.url; start(); }
   v.onerror = () => { if (!t.hls && !t.mpegts) fail('Could not play this stream'); };
+}
+
+// a site's own embedded player (used when we cannot get the raw stream); volume/speed are controlled inside it
+function mountEmbed(t, src) {
+  const f = document.createElement('iframe');
+  f.src = src; f.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture'; f.allowFullscreen = true;
+  t.media.appendChild(f); t.iframe = f;
+  f.addEventListener('load', () => setStatus(t, 'ok'));
+  setTimeout(() => { if (t.iframe === f) setStatus(t, 'ok'); }, 4000);
 }
 
 function mountYoutube(t, id) {
@@ -530,7 +540,7 @@ function renderCfg(t) {
     });
     d.appendChild(row); m.appendChild(d);
   };
-  const isYt = !!t.iframe, h = t.hls;
+  const isYt = t.kind === 'youtube', h = t.hls;
   if (!t.live && (t.video || isYt)) sec('Speed', [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((r) => ({ label: r === 1 ? 'Normal' : r + '×', on: (t.speed || 1) === r, fn: () => setSpeed(t, r) })));
   if (h && h.levels.length > 1) {
     const lv = h.levels.map((l, i) => ({ i, h: l.height })).filter((x) => x.h).sort((a, b) => b.h - a.h);

@@ -6,7 +6,7 @@
 
 A local media player with up to **8 players on one screen**. It shows only the video: no chat, no side bars, no clutter.
 
-Works with YouTube, TikTok LIVE, Twitch, Kick and most sites supported by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+Works with YouTube, TikTok LIVE, Twitch, Kick, X and Facebook (best effort), and most sites supported by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ## Features
 
