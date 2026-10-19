@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15151b">
 <title>SplitDeck</title>
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="stylesheet" href="style.css">
@@ -18,14 +19,14 @@
   </form>
   <div class="spacer"></div>
   <span class="count" id="count">0 / 8</span>
-  <button id="liveBtn" title="Browse live streams">📡 Live</button>
+  <button id="liveBtn" title="Browse live streams"><span class="ic">📡</span><span class="lbl">Live</span></button>
   <div class="pop-wrap">
-    <button id="layoutBtn" title="Change layout">Layout ▾</button>
+    <button id="layoutBtn" title="Change layout"><span class="ic">▦</span><span class="lbl">Layout</span></button>
     <div class="popover" id="layoutPop" hidden></div>
   </div>
-  <button id="muteAllBtn" title="Mute / unmute everything">🔊 All</button>
-  <button id="resetBtn" title="Close all streams and start fresh">Reset</button>
-  <button id="immersiveBtn" title="Hide this bar (H)">Hide UI</button>
+  <button id="muteAllBtn" title="Mute / unmute everything"><span class="ic">🔊</span><span class="lbl">All</span></button>
+  <button id="resetBtn" title="Close all streams and start fresh"><span class="ic">↺</span><span class="lbl">Reset</span></button>
+  <button id="immersiveBtn" title="Hide this bar (H)"><span class="ic">▭</span><span class="lbl">Hide UI</span></button>
 </header>
 <main id="stage"></main>
 <aside id="live" class="livepanel" hidden>

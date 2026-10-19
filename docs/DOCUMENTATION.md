@@ -10,6 +10,7 @@ SplitDeck is a small local web app. A Node.js server runs on your computer and s
 4. [Using SplitDeck](#4-using-splitdeck)
 5. [Layouts and resizing](#5-layouts-and-resizing)
 6. [Player controls](#6-player-controls)
+   - [6a. Phones and tablets](#6a-phones-and-tablets)
 7. [The Live browser](#7-the-live-browser)
 8. [YouTube: clean player and YouTube's player](#8-youtube-clean-player-and-youtubes-player)
 9. [Saved data and reset](#9-saved-data-and-reset)
@@ -107,7 +108,7 @@ Your choice is remembered per player count.
 
 ### Swapping players
 
-Each player has a **⋮⋮** handle at the top left. Drag it and drop it on another player to swap their positions. The players keep playing while they move. The **★ Main** button swaps a player into the first (usually largest) position.
+Each player has a **⋮⋮** handle at the top left. Drag it and drop it on another player to swap their positions (on a touch screen, press and drag the handle). The players keep playing while they move. The **★ Main** button swaps a player into the first (usually largest) position.
 
 ### Resizing
 
@@ -115,7 +116,7 @@ Every split has a divider between players. Drag a divider to make one side bigge
 
 ## 6. Player controls
 
-Hover a player to show its controls. They fade after a moment of stillness.
+Hover a player to show its controls (on a touch screen, tap it). They fade after a moment of stillness.
 
 ### Top bar of a player
 
@@ -152,6 +153,26 @@ Sections appear only when they apply to the current player.
 | Captions | Off, or any available language. |
 | Audio | Appears when there is more than one audio track. |
 | Player | YouTube only: switch between the clean player and YouTube's own player. |
+
+## 6a. Phones and tablets
+
+SplitDeck adapts to touch screens and small windows. It works in a phone or tablet browser, for example by opening the address of a SplitDeck running on another computer. The app itself has no login, so keep it on a private network.
+
+| Area | What changes |
+|---|---|
+| Top bar | On tablets the buttons show icons only. On phones the link box takes its own row and the buttons sit below it. |
+| Showing controls | There is no hover on a touch screen, so **tap a picture** to show its controls. They hide again after a few seconds, or when you tap another player. |
+| Swapping | Press the **⋮⋮** handle, drag onto another player and let go. |
+| Resizing | The handles between players are always visible and larger. Drag them with a finger. |
+| Default layout | If you have not chosen a layout yet, portrait screens get stacked layouts: one picture per row on phones, two columns on tablets from 4 players. Rotating the device picks a suitable default again. A layout you chose yourself is kept. |
+| Small players | Very small players hide the least-used buttons (fit/fill, reload, volume slider, title) so the rest still fit. Open the player in fullscreen to see everything. |
+| Live panel | Fills the whole width on phones. Use ✕ to close it and watch. |
+| Fullscreen | On iPhone and iPad only the video itself can go fullscreen, so SplitDeck's own controls are not shown there. |
+| Text boxes | Use a 16 px font so iOS does not zoom the page when you tap them. |
+
+The keyboard shortcuts in [section 10](#10-keyboard-shortcuts) need a keyboard. On a phone use the **Show UI** button instead of **H**.
+
+---
 
 ## 7. The Live browser
 

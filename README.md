@@ -16,6 +16,7 @@ Works with YouTube, TikTok LIVE, Twitch, Kick and most sites supported by [yt-dl
 - Per-player volume, mute and solo, plus a toolbar with speed, quality and captions.
 - A built-in "Live now" browser with search, language and category filters.
 - Your setup is remembered between sessions.
+- Works on phones and tablets, with touch controls.
 
 ## Quick start
 

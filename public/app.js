@@ -76,6 +76,7 @@ function buildLayouts(n) {
   def('Big bottom', () => { const b = LF(); const s = stripT(m); return split('v', [1 - f, f], [s, b]); });
   if (n >= 3) {
     const a = Math.floor(n / 2), b = n - a;
+    def('2 columns', () => rowsT(balanced(n, 2)));
     def(`${a} | ${b}`, () => colsT([a, b]));
     if (a !== b) def(`${b} | ${a}`, () => colsT([b, a]));
     def(`${a} / ${b}`, () => rowsT([a, b]));
@@ -116,7 +117,15 @@ function currentLayouts() {
 }
 function currentLayout() {
   const ls = currentLayouts();
-  return ls.find((l) => l.name === layoutPref[tiles.length]) || ls[0];
+  const chosen = ls.find((l) => l.name === layoutPref[tiles.length]);
+  if (chosen) return chosen;
+  // no choice yet: in portrait (phones) prefer stacked layouts so every picture stays wide
+  const portrait = stage.clientHeight > stage.clientWidth * 1.05, n = tiles.length;
+  // phones (narrow): one wide picture per row; tablets (wide): two columns from 4 players up
+  const wide = stage.clientWidth >= 600;
+  const want = !portrait || n < 2 ? [] : n === 2 ? ['Stacked'] : wide ? (n === 3 ? ['Column'] : ['2 columns', 'Grid']) : n <= 5 ? ['Column'] : ['2 columns'];
+  for (const w of want) { const f = ls.find((l) => l.name === w); if (f) return f; } // first match in order of preference
+  return ls[0];
 }
 
 /* ---------------- rendering ---------------- */
@@ -216,6 +225,7 @@ function createTile(url, opts = {}) {
   el.innerHTML = `
     <div class="box">
       <div class="media"></div>
+      <div class="shield"></div>
       <div class="status"><div class="spin"></div><div class="msg">Resolving stream…</div></div>
       <div class="hud top">
         <button class="grip" draggable="true" title="Drag onto another player to swap places">⋮⋮</button>
@@ -271,6 +281,15 @@ function createTile(url, opts = {}) {
     idleT = setTimeout(() => t.box.classList.add('idle'), 2800);
   });
   t.box.addEventListener('mouseleave', () => { clearTimeout(idleT); t.box.classList.remove('idle'); });
+  // touch: tap the picture to show its controls; they hide again after a few seconds
+  const bump = () => { clearTimeout(t.hideT); t.hideT = setTimeout(() => { if (!t.menu) t.box.classList.remove('active'); }, 4500); };
+  t.box.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse') return;
+    if (e.target.closest('.hud, .cfgmenu, .divider')) { bump(); return; }
+    const on = !t.box.classList.contains('active');
+    tiles.forEach((o) => o.box.classList.remove('active'));
+    if (on) { t.box.classList.add('active'); bump(); }
+  });
   setupDnD(t);
   applyAudioUI(t);
   applyLayout();
@@ -436,7 +455,7 @@ function applyAudioUI(t) {
   updateMuteAll();
 }
 function setPlayIcon(t) { t.el.querySelector('[data-a=play]').textContent = t.paused ? '▶' : '⏸'; }
-function updateMuteAll() { $('#muteAllBtn').textContent = tiles.length && tiles.every((t) => t.muted) ? '🔇 All' : '🔊 All'; }
+function updateMuteAll() { $('#muteAllBtn').innerHTML = '<span class="ic">' + (tiles.length && tiles.every((t) => t.muted) ? '🔇' : '🔊') + '</span><span class="lbl">All</span>'; }
 
 function action(t, a) {
   switch (a) {
@@ -445,7 +464,9 @@ function action(t, a) {
     case 'fit': t.fill = !t.fill; t.box.classList.toggle('fill', t.fill); return save();
     case 'fs':
       if (document.fullscreenElement) return document.exitFullscreen();
-      return t.box.requestFullscreen && t.box.requestFullscreen();
+      if (t.box.requestFullscreen) return t.box.requestFullscreen();
+      if (t.video && t.video.webkitEnterFullscreen) return t.video.webkitEnterFullscreen();
+      return;
     case 'mute':
       t.muted = !t.muted; if (!t.muted && t.vol === 0) t.vol = 0.6;
       applyAudio(t); applyAudioUI(t); return save();
@@ -542,6 +563,32 @@ function swap(i, j) {
 let dragSrc = null;
 function setupDnD(t) {
   const grip = t.el.querySelector('.grip'), dz = t.el.querySelector('.dropzone');
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return; // mouse uses native drag & drop below
+    e.preventDefault();
+    grip.draggable = false;
+    try { grip.setPointerCapture(e.pointerId); } catch {}
+    dragSrc = t; document.body.classList.add('dragging'); t.el.classList.add('dragsrc');
+    let over = null;
+    const mark = (ev) => {
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      const z = hit && hit.closest ? hit.closest('.dropzone') : null;
+      if (over && over !== z) over.classList.remove('over');
+      over = z && z !== dz ? z : null;
+      if (over) over.classList.add('over');
+    };
+    const end = (ev) => {
+      grip.removeEventListener('pointermove', mark); grip.removeEventListener('pointerup', end); grip.removeEventListener('pointercancel', end);
+      document.body.classList.remove('dragging'); t.el.classList.remove('dragsrc');
+      if (over && ev.type === 'pointerup') {
+        const target = tiles.find((o) => o.el.querySelector('.dropzone') === over);
+        if (target) swap(tiles.indexOf(t), tiles.indexOf(target));
+      }
+      document.querySelectorAll('.dropzone.over').forEach((d) => d.classList.remove('over'));
+      grip.draggable = true; dragSrc = null;
+    };
+    grip.addEventListener('pointermove', mark); grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+  });
   grip.addEventListener('dragstart', (e) => {
     dragSrc = t; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(t.id));
     try { e.dataTransfer.setDragImage(grip, 10, 10); } catch {}
@@ -596,6 +643,13 @@ document.addEventListener('keydown', (e) => {
 const topbar = $('#topbar');
 $('#edge').addEventListener('mouseenter', () => { topbar.classList.add('reveal'); document.body.classList.add('revealed'); });
 topbar.addEventListener('mouseleave', () => { topbar.classList.remove('reveal'); document.body.classList.remove('revealed'); });
+const syncTop = () => document.documentElement.style.setProperty('--top', topbar.offsetHeight + 'px');
+new ResizeObserver(syncTop).observe(topbar);
+let resizeT;
+const onResize = () => { syncTop(); clearTimeout(resizeT); resizeT = setTimeout(() => applyLayout(), 120); };
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
+syncTop();
 
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function prettySource(s) { return String(s).replace(/(Live|Stream)$/i, '').replace(/^youtube$/i, 'YouTube') || 'Video'; }
