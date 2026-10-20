@@ -11,6 +11,7 @@ SplitDeck is a small local web app. A Node.js server runs on your computer and s
 5. [Layouts and resizing](#5-layouts-and-resizing)
 6. [Player controls](#6-player-controls)
    - [6a. Phones and tablets](#6a-phones-and-tablets)
+   - [6b. Find stream links](#6b-find-stream-links)
 7. [The Live browser](#7-the-live-browser)
 8. [YouTube: clean player and YouTube's player](#8-youtube-clean-player-and-youtubes-player)
 9. [Saved data and reset](#9-saved-data-and-reset)
@@ -174,6 +175,43 @@ The keyboard shortcuts in [section 10](#10-keyboard-shortcuts) need a keyboard. 
 
 ---
 
+## 6b. Find stream links
+
+Click **Find** in the top bar to open the link finder. Paste the address of a web page and press **Scan**. SplitDeck downloads the page and lists any `.m3u8` (HLS), `.mp4` and `.flv` links it can see in the page's source. It is like looking at a page's source for video links, done for you.
+
+### What it scans
+
+- The page itself.
+- Its frames (`<iframe>`), up to two levels deep, because players are often nested.
+- A few of its script files.
+- It handles links written with escaped slashes (`https:\/\/…`), protocol-relative links (`//host/file.m3u8`) and relative links (`clips/a.mp4`), and notes when a link came from a `<video>` tag or a meta tag.
+
+It stops after about 18 downloads, and each is size- and time-limited.
+
+### What each result offers
+
+| Button | What it does |
+|---|---|
+| **▶ Play** | Adds the link as a player. |
+| **Copy** | Copies the link. |
+| **Test** | Asks the server for the link and reports what came back: the HTTP status, and for a playlist the number of quality levels, whether it is live or recorded, and whether its segments are encrypted. A `403` usually means the server only serves the page that embeds it. |
+
+**Try the page link itself** hands the whole page to the normal link handling (yt-dlp), which understands many sites and can find video that a plain scan cannot.
+
+### What it does not do
+
+- It does **not** run scripts. If a page loads its video with JavaScript after it opens, the link will not appear in the source and the scan will find nothing.
+- It does **not** decode, decrypt or deobfuscate anything, and it does not get around protection such as login walls, signed links, referer checks or DRM.
+- Playing a found link sends no special headers, so links that only work from their own page will not play.
+
+Use it only with content you have the right to watch.
+
+### Safety
+
+The scanner makes requests from your computer to any address you give it, so it refuses private-network addresses: your own machine, `10.x`, `172.16–31.x`, `192.168.x`, link-local addresses (including cloud metadata addresses) and their IPv6 equivalents. This is checked for every redirect too. To inspect a page on your own network on purpose, start the server with `ALLOW_PRIVATE_URLS=1` (see [Configuration](#12-configuration)).
+
+---
+
 ## 7. The Live browser
 
 Click **Live** in the top bar to open a panel listing what is live right now. Click any row to add it as a player. A row you added is outlined.
@@ -268,6 +306,7 @@ Environment variables, set before `npm start`:
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` | `8787` | Port the server listens on. |
+| `ALLOW_PRIVATE_URLS` | off | Set to `1` to let the link finder scan addresses on your own network. Leave it off unless you need it. |
 | `COOKIES` | `cookies.txt` if it exists | Path to a Netscape-format cookies file passed to yt-dlp, for sites that need a login. Optional. |
 | `YTDLP` | auto | Path to a yt-dlp executable. By default SplitDeck uses `bin/yt-dlp` (from `npm run setup`), and otherwise `yt-dlp` on your `PATH`. |
 
@@ -293,6 +332,8 @@ The page talks to the local server with these endpoints. They are internal and m
 | `GET /api/live?site=…` | Lists live streams for `twitch`, `kick` or `youtube`, or checks usernames for `tiktok`. Parameters: `lang`, `cat`, `q` (search), `after` (paging token), `users` (TikTok). Returns `items` and `next`. |
 | `GET /api/categories?site=…[&q=…]` | Category list for `twitch`, `kick` or `youtube`, optionally filtered by `q`. |
 | `GET /api/languages?site=…` | Languages available for `twitch` or `kick`. |
+| `GET /api/inspect?url=…` | Scans a page for stream links ([section 6b](#6b-find-stream-links)). Returns `page`, `results` (each with `url`, `kind`, `via`, `where`) and `scanned`. |
+| `GET /api/probe?url=…` | Tests one link and reports status, content type and, for playlists, quality levels and live/recorded. |
 | `GET /proxy?s=…&u=…` | Fetches a media URL with the right headers and adds CORS headers. Rewrites HLS playlists so every segment also goes through the proxy. |
 | `GET /master?id=…` | Serves a generated HLS master playlist (used for YouTube). |
 | Anything else | Static files from `public/`. |
@@ -362,6 +403,8 @@ SplitDeck/
 | Captions button missing | The video has no captions, or the player is YouTube's embed. |
 | A Facebook link shows "Video unavailable" | The video is private, removed or not public. The embedded player can only show public videos. |
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
+| The link finder shows no results | The page probably loads its video with JavaScript, or protects it. The finder only reads source text. Try **Try the page link itself**. |
+| The link finder says an address is blocked | It refuses private-network addresses. See `ALLOW_PRIVATE_URLS` in [Configuration](#12-configuration). |
 | Everything is stuck or wrong | Click **Reset**, then press **Ctrl+F5**. |
 
 ## 17. Limitations
@@ -375,10 +418,12 @@ SplitDeck/
 - Some content cannot be played: private, age-restricted, region-locked or login-only streams.
 - Facebook is best effort. The embedded fallback has no SplitDeck volume, mute, speed or quality controls.
 - X and Facebook have no entries in the Live browser.
+- The link finder reads only source text; it does not run scripts, so pages that build their player with JavaScript show no links.
 
 ## 18. Privacy and security
 
 - The server runs only on your computer and listens on `127.0.0.1`.
+- The link finder refuses private-network addresses by default, so it cannot be used to probe your home network.
 - Your optional `cookies.txt` stays on your computer and is excluded from Git. Treat it like a password.
 - Everything you save (players, layouts, watchlist) stays in your browser. Nothing is sent to a SplitDeck server.
 - Your computer requests media and listings directly from the sites you use, as a normal browser would.

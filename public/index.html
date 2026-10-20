@@ -19,6 +19,7 @@
   </form>
   <div class="spacer"></div>
   <span class="count" id="count">0 / 8</span>
+  <button id="inspectBtn" title="Find stream links in a web page"><span class="ic">🔎</span><span class="lbl">Find</span></button>
   <button id="liveBtn" title="Browse live streams"><span class="ic">📡</span><span class="lbl">Live</span></button>
   <div class="pop-wrap">
     <button id="layoutBtn" title="Change layout"><span class="ic">▦</span><span class="lbl">Layout</span></button>
@@ -36,6 +37,14 @@
   </div>
   <div class="lctl" id="liveCtl"></div>
   <div class="llist" id="liveList"></div>
+</aside>
+<aside id="inspect" class="livepanel" hidden>
+  <div class="lhead"><b>Find stream links</b><span class="spacer"></span><button id="inspClose" title="Close">✕</button></div>
+  <div class="lctl">
+    <form id="inspForm" class="srch"><input type="text" placeholder="Paste a web page link…" spellcheck="false" autocomplete="off"><button>Scan</button></form>
+    <div class="hint">Looks for .m3u8, .mp4 and .flv links in the page source, its frames and scripts. It does not run scripts or bypass protection. Use it only with content you have the right to watch.</div>
+  </div>
+  <div class="llist" id="inspList"><div class="lmsg">Paste a page link and press Scan.</div></div>
 </aside>
 <div id="empty" class="empty">
   <h1>Paste a link to start</h1>

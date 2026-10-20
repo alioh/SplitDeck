@@ -647,7 +647,7 @@ $('#showUiBtn').onclick = () => setImmersive(false);
 document.addEventListener('keydown', (e) => {
   if (e.target === input) { if (e.key === 'Escape') input.blur(); return; }
   if (e.key === 'h' || e.key === 'H') setImmersive(!document.body.classList.contains('immersive'));
-  if (e.key === 'Escape') { setImmersive(false); openLive(false); }
+  if (e.key === 'Escape') { setImmersive(false); openLive(false); openInspect(false); }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
 });
 const topbar = $('#topbar');
@@ -852,7 +852,7 @@ async function loadLive() {
     appendItems(data.items); afterPage(data, my);
   } catch (e) { msg('err', 'Could not load: ' + esc(e.message)); }
 }
-function openLive(on = true) { liveEl.hidden = !on; if (on) loadLive(); }
+function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; loadLive(); } }
 $('#liveBtn').onclick = (e) => { e.stopPropagation(); openLive(liveEl.hidden); };
 $('#liveClose').onclick = () => openLive(false);
 $('#liveRefresh').onclick = () => loadLive();
@@ -861,6 +861,85 @@ $('#liveTabs').onclick = (e) => {
   live.site = b.dataset.site;
   document.querySelectorAll('#liveTabs button').forEach((x) => x.classList.toggle('on', x === b));
   loadLive();
+};
+
+/* ---------------- link finder: scan a page for .m3u8 / .mp4 / .flv links ---------------- */
+const insEl = $('#inspect'), insForm = $('#inspForm'), insList = $('#inspList'), insInput = insForm.querySelector('input');
+function openInspect(on = true) {
+  insEl.hidden = !on;
+  if (on) { liveEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
+}
+$('#inspectBtn').onclick = (e) => { e.stopPropagation(); openInspect(insEl.hidden); };
+$('#inspClose').onclick = () => openInspect(false);
+const KIND_LABEL = { hls: 'HLS', mp4: 'MP4', flv: 'FLV' };
+
+async function copyText(txt) {
+  try { await navigator.clipboard.writeText(txt); return true; } catch {}
+  const ta = document.createElement('textarea');
+  ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch {}
+  ta.remove(); return ok;
+}
+function probeText(p) {
+  if (p.error) return { cls: 'bad', text: p.error };
+  const bits = ['HTTP ' + p.status];
+  if (p.status >= 400) { if (p.note) bits.push(p.note); return { cls: 'bad', text: bits.join(' · ') }; }
+  if (p.kind === 'hls' && p.ok) {
+    bits.push('HLS playlist');
+    if (p.variants) bits.push(p.variants + ' quality level' + (p.variants === 1 ? '' : 's') + (p.heights && p.heights.length ? ' (' + p.heights[0] + 'p–' + p.heights[p.heights.length - 1] + 'p)' : ''));
+    if (p.live === true) bits.push('live'); else if (p.live === false) bits.push('recorded');
+    if (p.encrypted) bits.push('encrypted segments');
+  } else if (p.ok) bits.push((p.kind || 'media').toUpperCase() + ' file');
+  else bits.push('not recognised as ' + (p.kind || 'media').toUpperCase());
+  if (p.note) bits.push(p.note);
+  return { cls: p.ok ? 'good' : 'bad', text: bits.join(' · ') };
+}
+function inspectRow(r) {
+  const row = document.createElement('div');
+  row.className = 'irow';
+  row.innerHTML = '<div class="itop"><span class="ibadge k-' + r.kind + '">' + KIND_LABEL[r.kind] + '</span><code class="iurl" title="' + esc(r.url) + '">' + esc(r.url) + '</code></div>' +
+    '<div class="imeta">Found in ' + esc(r.where) + ' · ' + esc(r.via) + '</div>' +
+    '<div class="iact"><button data-a="play">▶ Play</button><button data-a="copy">Copy</button><button data-a="test">Test</button></div><div class="iprobe" hidden></div>';
+  const out = row.querySelector('.iprobe');
+  row.querySelector('[data-a=play]').onclick = (e) => { if (addUrl(r.url)) e.target.textContent = 'Added ✓'; };
+  row.querySelector('[data-a=copy]').onclick = async (e) => { const ok = await copyText(r.url); e.target.textContent = ok ? 'Copied ✓' : 'Copy failed'; setTimeout(() => { e.target.textContent = 'Copy'; }, 1500); };
+  row.querySelector('[data-a=test]').onclick = async (e) => {
+    const b = e.target; b.disabled = true; out.hidden = false; out.className = 'iprobe'; out.textContent = 'Testing…';
+    try {
+      const res = await fetch('/api/probe?url=' + encodeURIComponent(r.url)); const p = await res.json();
+      const t = probeText(res.ok ? p : { error: p.error || 'failed' });
+      out.className = 'iprobe ' + t.cls; out.textContent = t.text;
+    } catch (err) { out.className = 'iprobe bad'; out.textContent = err.message; }
+    b.disabled = false;
+  };
+  return row;
+}
+function renderInspect(d) {
+  insList.innerHTML = '';
+  const okDocs = d.scanned.filter((s) => !s.error), failed = d.scanned.length - okDocs.length;
+  const frames = okDocs.filter((s) => s.kind === 'iframe').length, scripts = okDocs.filter((s) => s.kind === 'script').length;
+  const sum = document.createElement('div');
+  sum.className = 'isum';
+  sum.innerHTML = '<b>' + esc(d.page.title || d.page.url) + '</b><div>Scanned the page, ' + frames + ' frame' + (frames === 1 ? '' : 's') + ' and ' + scripts + ' script' + (scripts === 1 ? '' : 's') +
+    (failed ? ' (' + failed + ' could not be loaded)' : '') + '. Found <b>' + d.results.length + '</b> link' + (d.results.length === 1 ? '' : 's') + '.</div>' +
+    '<button class="ipage">▶ Try the page link itself</button>';
+  sum.querySelector('.ipage').onclick = (e) => { if (addUrl(d.page.url)) e.target.textContent = 'Added ✓'; };
+  insList.appendChild(sum);
+  if (!d.results.length) {
+    insList.insertAdjacentHTML('beforeend', '<div class="lmsg">No direct .m3u8, .mp4 or .flv links in the page source.<br><small>Many pages only load their video with JavaScript after the page opens, or protect it. This tool does not run scripts or get around protection. “Try the page link itself” hands the page to yt-dlp, which understands many sites.</small></div>');
+    return;
+  }
+  d.results.forEach((r) => insList.appendChild(inspectRow(r)));
+}
+insForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const link = insInput.value.trim(); if (!link) return;
+  insList.innerHTML = '<div class="lmsg"><div class="spin"></div>Scanning the page, its frames and scripts…</div>';
+  try {
+    const r = await fetch('/api/inspect?url=' + encodeURIComponent(link)); const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'failed');
+    renderInspect(d);
+  } catch (err) { insList.innerHTML = '<div class="lmsg err">' + esc(err.message) + '</div>'; }
 };
 
 /* ---------------- reset ---------------- */

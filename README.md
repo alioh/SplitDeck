@@ -15,6 +15,7 @@ Works with YouTube, TikTok LIVE, Twitch, Kick, X and Facebook (best effort), and
 - Drag the dividers between players to resize them.
 - Per-player volume, mute and solo, plus a toolbar with speed, quality and captions.
 - A built-in "Live now" browser with search, language and category filters.
+- A link finder: paste a web page and list the `.m3u8`, `.mp4` and `.flv` links in its source.
 - Your setup is remembered between sessions.
 - Works on phones and tablets, with touch controls.
 

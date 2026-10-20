@@ -253,8 +253,8 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
   .brand, .spacer { display: none; }
   .addform { order: 1; flex: 1 1 100%; max-width: none; }
   .count { order: 2; margin-right: auto; font-size: 14px; }
-  #liveBtn { order: 3; } .pop-wrap { order: 4; } #muteAllBtn { order: 5; } #resetBtn { order: 6; } #immersiveBtn { order: 7; }
-  .topbar button { min-height: 40px; min-width: 46px; font-size: 16px; }
+  #inspectBtn, #liveBtn { order: 3; } .pop-wrap { order: 4; } #muteAllBtn { order: 5; } #resetBtn { order: 6; } #immersiveBtn { order: 7; }
+  .topbar button { min-height: 40px; min-width: 42px; font-size: 16px; }
   .addform input { height: 42px; }
   .addform button { min-height: 42px; }
   .popover { position: fixed; left: 10px; right: 10px; top: var(--top); width: auto; max-height: 60vh; grid-template-columns: repeat(3, 1fr); }
@@ -268,3 +268,19 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
 @media (max-width: 380px) {
   .popover { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* link finder */
+.isum { padding: 10px 8px 12px; border-bottom: 1px solid var(--line); line-height: 1.45; }
+.isum b { word-break: break-word; }
+.isum div { color: var(--dim); margin: 4px 0 8px; }
+.irow { padding: 10px 8px; border-bottom: 1px solid #20202a; }
+.itop { display: flex; gap: 8px; align-items: flex-start; }
+.ibadge { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .05em; padding: 2px 6px; border-radius: 4px; background: #2a2a34; }
+.ibadge.k-hls { background: #3b2a6b; } .ibadge.k-mp4 { background: #1f4d3a; } .ibadge.k-flv { background: #5a3b1f; }
+.iurl { font: 11px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; word-break: break-all; color: #cfd0dc; }
+.imeta { color: var(--dim); font-size: 11px; margin: 5px 0 7px; }
+.iact { display: flex; gap: 6px; flex-wrap: wrap; }
+.iact button, .ipage { padding: 4px 10px; font-size: 12px; }
+.iprobe { margin-top: 7px; font-size: 12px; line-height: 1.4; color: var(--dim); }
+.iprobe.good { color: #7ddc9a; } .iprobe.bad { color: #ff9aa4; }
+.lmsg small { color: var(--dim); line-height: 1.5; }

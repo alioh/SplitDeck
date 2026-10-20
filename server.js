@@ -450,6 +450,177 @@ function serveStatic(req, res, pathname) {
   });
 }
 
+// ---------- Link finder: scan a web page's source for stream links (.m3u8 / .mp4 / .flv) ----------
+// Deliberately simple: it downloads the page, its iframes and scripts (a few levels, size-limited) and
+// looks for URLs in the text. It does not run scripts, decode or deobfuscate anything, or work around
+// protection. Requests to private-network addresses are refused unless ALLOW_PRIVATE_URLS=1.
+const dns = require('dns').promises;
+const net = require('net');
+const ALLOW_PRIVATE = process.env.ALLOW_PRIVATE_URLS === '1';
+
+function isPrivateIp(ip) {
+  if (net.isIPv6(ip)) {
+    const l = ip.toLowerCase();
+    if (l === '::1' || l === '::') return true;
+    if (/^f[cd]/.test(l) || /^fe[89ab]/.test(l)) return true;
+    const m = l.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    return m ? isPrivateIp(m[1]) : false;
+  }
+  const p = ip.split('.').map(Number);
+  return p[0] === 10 || p[0] === 127 || p[0] === 0 || (p[0] === 169 && p[1] === 254) || (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+    (p[0] === 192 && p[1] === 168) || (p[0] === 100 && p[1] >= 64 && p[1] <= 127);
+}
+async function assertPublic(u) {
+  const url = new URL(u);
+  if (!/^https?:$/.test(url.protocol)) throw new Error('Only http and https links are supported');
+  if (ALLOW_PRIVATE) return url;
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  const addrs = net.isIP(host) ? [{ address: host }] : await dns.lookup(host, { all: true });
+  if (!addrs.length || addrs.some((a) => isPrivateIp(a.address))) throw new Error('That address is on a private network and is blocked for safety');
+  return url;
+}
+// fetch with redirect checking, a time limit and a size limit
+async function safeFetch(u, { maxBytes = 1500000, timeout = 15000, headers = {} } = {}) {
+  let cur = u;
+  for (let hop = 0; hop < 5; hop++) {
+    await assertPublic(cur);
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeout);
+    try {
+      const r = await fetch(cur, { headers: Object.assign({ 'User-Agent': UA, Accept: '*/*', 'Accept-Language': 'en-US,en;q=0.8' }, headers), redirect: 'manual', signal: ac.signal });
+      if ([301, 302, 303, 307, 308].includes(r.status) && r.headers.get('location')) { cur = new URL(r.headers.get('location'), cur).href; try { await r.body.cancel(); } catch {} continue; }
+      const chunks = []; let total = 0, truncated = false;
+      if (r.body) {
+        const reader = r.body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(Buffer.from(value)); total += value.length;
+          if (total >= maxBytes) { truncated = true; try { await reader.cancel(); } catch {} break; }
+        }
+      }
+      return { status: r.status, url: cur, headers: r.headers, body: Buffer.concat(chunks).slice(0, maxBytes), truncated };
+    } finally { clearTimeout(timer); }
+  }
+  throw new Error('Too many redirects');
+}
+
+const KIND = { m3u8: 'hls', mp4: 'mp4', flv: 'flv' };
+const EXT_RE = '(?:m3u8|mp4|flv)';
+// pull media URLs out of text (page source, script, JSON); resolves relative and protocol-relative links
+function extractMedia(raw, base) {
+  const t = raw.replace(/\\\//g, '/').replace(/\\u0026/gi, '&').replace(/\\x2F/gi, '/').replace(/&amp;/g, '&');
+  const found = new Map();
+  const add = (u, idx) => {
+    let abs; try { abs = new URL(u, base).href; } catch { return; }
+    if (!/^https?:/i.test(abs)) return;
+    abs = abs.replace(/#.*$/, '');
+    const ext = (abs.split('?')[0].match(/\.(m3u8|mp4|flv)$/i) || [])[1];
+    if (!ext || found.has(abs)) return;
+    const ctx = t.slice(Math.max(0, idx - 90), idx).toLowerCase();
+    const via = /<video[^>]*$/.test(ctx) || /<source[^>]*$/.test(ctx) ? 'video tag' : /og:video|twitter:player:stream/.test(ctx) ? 'meta tag' : 'page source';
+    found.set(abs, { url: abs, kind: KIND[ext.toLowerCase()], via });
+  };
+  let m;
+  const abs = new RegExp('https?://[^\\s"\'<>\\\\)\\]},;]+?\\.' + EXT_RE + '(?:\\?[^\\s"\'<>\\\\)\\]},;]*)?(?=["\'\\s<>\\\\)\\]},;]|$)', 'gi');
+  while ((m = abs.exec(t))) add(m[0], m.index);
+  const proto = new RegExp('(?:^|["\'(=\\s])(//[^\\s"\'<>\\\\)]+?\\.' + EXT_RE + '(?:\\?[^\\s"\'<>\\\\)]*)?)(?=["\'\\s<>\\\\)]|$)', 'gi');
+  while ((m = proto.exec(t))) add('https:' + m[1], m.index);
+  const rel = new RegExp('["\'(=]\\s*((?!https?:|//|data:|javascript:)[\\w\\-./%~]+?\\.' + EXT_RE + '(?:\\?[^"\'\\s<>)]*)?)\\s*["\')]', 'gi');
+  while ((m = rel.exec(t))) add(m[1], m.index);
+  return [...found.values()];
+}
+const attrUrls = (html, tag, attr, base) => {
+  const out = [], re = new RegExp('<' + tag + '\\b[^>]*?\\b' + attr + '\\s*=\\s*["\']([^"\']+)["\']', 'gi');
+  let m;
+  while ((m = re.exec(html))) { try { const u = new URL(m[1].replace(/&amp;/g, '&'), base).href; if (/^https?:/i.test(u)) out.push(u); } catch {} }
+  return [...new Set(out)];
+};
+
+// turn low-level network errors into something readable
+function friendlyError(e) {
+  const code = (e.cause && (e.cause.code || (e.cause.errors && e.cause.errors[0] && e.cause.errors[0].code))) || e.code || '';
+  if (e.name === 'AbortError' || /TIMEOUT/.test(code)) return 'The server took too long to answer.';
+  if (code === 'ENOTFOUND') return 'That address does not exist (name lookup failed).';
+  if (code === 'ECONNREFUSED' || code === 'ECONNRESET') return 'The server refused or dropped the connection.';
+  if (/CERT|SELF_SIGNED|UNABLE_TO_VERIFY/.test(code)) return "The site's security certificate is not valid.";
+  return e.message;
+}
+
+async function inspectPage(inputUrl) {
+  let start = inputUrl.trim();
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(start) && !/^https?:\/\//i.test(start)) throw new Error('Only http and https links are supported');
+  if (!/^https?:\/\//i.test(start)) start = 'https://' + start;
+  const scanned = [], results = new Map();
+  let budget = 18; // total downloads
+  const note = (e) => { if (!results.has(e.url)) results.set(e.url, e); };
+
+  const scan = async (url, kind, referer, depth) => {
+    if (budget-- <= 0) return null;
+    try {
+      const r = await safeFetch(url, { headers: referer ? { Referer: referer } : {} });
+      const text = r.body.toString('utf8');
+      scanned.push({ url: r.url, kind, status: r.status, bytes: r.body.length, truncated: r.truncated });
+      const label = kind === 'page' ? 'the page' : kind === 'iframe' ? 'frame ' + new URL(r.url).host : 'script ' + (new URL(r.url).pathname.split('/').pop() || r.url);
+      // a direct media link given as the "page"
+      if (kind === 'page' && /\.(m3u8|mp4|flv)(\?|$)/i.test(r.url)) note({ url: r.url, kind: KIND[(r.url.split('?')[0].match(/\.(m3u8|mp4|flv)$/i) || [])[1].toLowerCase()], via: 'the link you gave', where: label });
+      extractMedia(text, r.url).forEach((e) => note(Object.assign(e, { where: label })));
+      return { r, text };
+    } catch (e) {
+      scanned.push({ url, kind, error: friendlyError(e) });
+      return null;
+    }
+  };
+
+  const page = await scan(start, 'page', '', 0);
+  if (!page) throw new Error(scanned[0].error || 'Could not load the page');
+  const title = (page.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+  const pageUrl = page.r.url;
+  // frames and scripts: up to two levels of frames, a handful of scripts per document
+  let frames = attrUrls(page.text, 'iframe', 'src', pageUrl).slice(0, 6).map((u) => [u, pageUrl]);
+  const scripts = attrUrls(page.text, 'script', 'src', pageUrl).slice(0, 6).map((u) => [u, pageUrl]);
+  const docs = [];
+  await Promise.all(frames.map(async ([u, ref]) => { const d = await scan(u, 'iframe', ref, 1); if (d) docs.push(d); }));
+  const scripts2 = [];
+  for (const d of docs) {
+    const base = d.r.url;
+    frames = attrUrls(d.text, 'iframe', 'src', base).slice(0, 3).map((u) => [u, base]);
+    attrUrls(d.text, 'script', 'src', base).slice(0, 4).forEach((u) => scripts2.push([u, base]));
+    await Promise.all(frames.map(async ([u, ref]) => { const x = await scan(u, 'iframe', ref, 2); if (x) attrUrls(x.text, 'script', 'src', x.r.url).slice(0, 3).forEach((s) => scripts2.push([s, x.r.url])); }));
+  }
+  await Promise.all([...scripts, ...scripts2].map(([u, ref]) => scan(u, 'script', ref, 1)));
+
+  const order = { hls: 0, flv: 1, mp4: 2 };
+  const list = [...results.values()].sort((a, b) => order[a.kind] - order[b.kind]).slice(0, 100);
+  return { page: { url: pageUrl, title: title ? title.replace(/\s+/g, ' ').trim().slice(0, 140) : '' }, results: list, scanned };
+}
+
+// quick check of one candidate link: does it answer, and does it look like what its extension says?
+async function probeLink(u) {
+  const r = await safeFetch(u, { maxBytes: 400000, timeout: 15000, headers: { Range: 'bytes=0-399999' } });
+  const ct = r.headers.get('content-type') || '';
+  const out = { status: r.status, finalUrl: r.url, contentType: ct, bytes: r.body.length, contentLength: r.headers.get('content-length') || null };
+  const head = r.body.slice(0, 16).toString('latin1'), text = r.body.toString('utf8');
+  const path = r.url.split('?')[0].toLowerCase();
+  if (r.status >= 400) { out.ok = false; out.note = r.status === 403 || r.status === 401 ? 'The server refuses a direct request (it may only serve the page that embeds it).' : 'The server returned an error.'; return out; }
+  if (path.endsWith('.m3u8') || /mpegurl/i.test(ct) || head.startsWith('#EXTM3U')) {
+    out.kind = 'hls'; out.ok = text.startsWith('#EXTM3U');
+    if (out.ok) {
+      const res = [...text.matchAll(/RESOLUTION=\d+x(\d+)/g)].map((x) => +x[1]);
+      out.variants = (text.match(/#EXT-X-STREAM-INF/g) || []).length;
+      out.heights = [...new Set(res)].sort((a, b) => a - b);
+      out.segments = (text.match(/#EXTINF/g) || []).length;
+      out.live = out.segments > 0 ? !/#EXT-X-ENDLIST/.test(text) : null; // unknown for a master playlist
+      out.encrypted = /#EXT-X-KEY:[^\n]*METHOD=(AES-128|SAMPLE-AES)/.test(text);
+    }
+  } else if (path.endsWith('.flv')) { out.kind = 'flv'; out.ok = head.startsWith('FLV'); }
+  else {
+    out.kind = 'mp4'; out.ok = r.body.slice(4, 8).toString('latin1') === 'ftyp' || /^video\//i.test(ct);
+    if (!out.ok && /text\/html/i.test(ct)) out.note = 'This link returns a web page, not a video file.';
+  }
+  return out;
+}
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
@@ -487,6 +658,15 @@ http.createServer(async (req, res) => {
         }
         res.statusCode = 400; return res.end(JSON.stringify({ error: 'unknown site' }));
       } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: e.message })); }
+    }
+    if (url.pathname === '/api/inspect' || url.pathname === '/api/probe') {
+      res.setHeader('Content-Type', 'application/json');
+      const target = (url.searchParams.get('url') || '').trim();
+      try {
+        if (!target) throw new Error('Enter a link');
+        const data = url.pathname === '/api/inspect' ? await inspectPage(target) : await probeLink(target);
+        return res.end(JSON.stringify(data));
+      } catch (e) { res.statusCode = 422; return res.end(JSON.stringify({ error: friendlyError(e) })); }
     }
     if (url.pathname === '/master') {
       const text = masters.get(url.searchParams.get('id'));
