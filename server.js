@@ -407,9 +407,8 @@ function rewriteM3u8(text, base, sid) {
   }).join('\n');
 }
 
-async function handleProxy(req, res, q, allowSid) {
+async function handleProxy(req, res, q) {
   const sid = q.get('s');
-  if (allowSid && !allowSid(sid)) { res.writeHead(403); return res.end('not allowed'); }
   const target = q.get('u');
   const headers = sessions.get(sid);
   if (!headers || !target) { res.writeHead(404); return res.end('unknown stream'); }
@@ -622,9 +621,6 @@ async function probeLink(u) {
   return out;
 }
 
-// casting to a TV (see cast.js)
-const castMod = require('./cast')({ resolve, handleProxy, masters, PUBLIC, DATA_DIR: path.join(__dirname, 'data') });
-
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
@@ -663,7 +659,6 @@ http.createServer(async (req, res) => {
         res.statusCode = 400; return res.end(JSON.stringify({ error: 'unknown site' }));
       } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: e.message })); }
     }
-    if (url.pathname.startsWith('/api/cast/') && (await castMod.handleLocal(req, res, url))) return;
     if (url.pathname === '/api/inspect' || url.pathname === '/api/probe') {
       res.setHeader('Content-Type', 'application/json');
       const target = (url.searchParams.get('url') || '').trim();

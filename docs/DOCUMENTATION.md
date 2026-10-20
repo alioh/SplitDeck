@@ -12,7 +12,6 @@ SplitDeck is a small local web app. A Node.js server runs on your computer and s
 6. [Player controls](#6-player-controls)
    - [6a. Phones and tablets](#6a-phones-and-tablets)
    - [6b. Find stream links](#6b-find-stream-links)
-   - [6c. Casting to a TV](#6c-casting-to-a-tv)
 7. [The Live browser](#7-the-live-browser)
 8. [YouTube: clean player and YouTube's player](#8-youtube-clean-player-and-youtubes-player)
 9. [Saved data and reset](#9-saved-data-and-reset)
@@ -213,73 +212,6 @@ The scanner makes requests from your computer to any address you give it, so it 
 
 ---
 
-## 6c. Casting to a TV
-
-Click **Cast** in the top bar to show all your players on a TV. SplitDeck finds TVs on your network, you pick one, and the TV shows the same players in the same layout. You can enlarge one player and go back to all of them, from the dashboard or with the TV remote.
-
-### How it works
-
-- SplitDeck serves a read-only **TV view** (a page) from the computer it runs on.
-- The dashboard sends its players and layout to that page. The TV plays the streams itself; nothing is mirrored as video from your screen.
-- **Samsung (Tizen) TVs:** SplitDeck finds the TV, asks it to open its web browser at the TV view, and the TV shows an **Allow** prompt the first time. SplitDeck remembers the TV after that.
-- **Any other TV with a web browser:** SplitDeck shows an address (also with **Just show me the address**). Open it in the TV's browser.
-
-Your TV and the computer (or Raspberry Pi) running SplitDeck must be on the same network.
-
-### Steps
-
-1. Click **Cast**, then **Scan for TVs**. If your TV is not listed, type its IP address under the list and press **Add**.
-2. Click **Cast** next to the TV.
-3. On a Samsung TV, look at the TV and choose **Allow** with the remote (first time only). The panel shows the steps: connecting, waiting for Allow, opening, then **Casting**.
-4. Press **OK** once on the TV remote (or click **Full screen on TV** in the Cast panel). The first key press makes the page full screen, hiding the browser's address bar and menus.
-5. Add or change players on the dashboard. The TV follows: adding and closing players, swapping, changing the layout and dragging dividers all update the TV.
-
-### Full screen and the TV's browser
-
-Samsung TVs let other devices start only the TV's **built-in web browser** with a web address, so the TV view opens inside that browser, with its address bar. Browsers only allow full screen after a key press, so SplitDeck waits for one:
-
-- Press **OK** on the TV remote. The first press makes the page full screen and does nothing else; later presses enlarge the highlighted player.
-- Or click **Full screen on TV** in the Cast panel. SplitDeck sends an OK key press to the TV for you (it can send only that key).
-- If the TV's browser does not allow it, use the full-screen option in the browser's own menu.
-- When all players are shown, **Back** goes back in the TV browser or leaves full screen.
-
-A true app-style window with no browser at all would need a small SplitDeck app installed on the TV through Samsung's Developer Mode. SplitDeck does not do that yet.
-
-### Enlarging a player
-
-- On the dashboard, click the **📺** button in a player's controls, or **Enlarge** next to it in the Cast panel. Click again (or **Back to all**) to return. The enlarged player has a blue outline on the dashboard.
-- On the TV remote: **arrow keys** move the highlight, **OK** enlarges the highlighted player, and **Back** returns to all players. While one is enlarged, **left/right** switches to the previous or next player.
-- Other players on the TV pause while one is enlarged and resume when you go back.
-
-### Sound
-
-The TV plays sound from only one player: the enlarged one, or the first player when all are shown. Other players are muted on the TV. By default **this device is muted while casting** so you do not hear everything twice (untick the box in the Cast panel to change this); it is restored when you stop. Some TV browsers will not turn sound on until you press a key on the remote; the TV says so on screen.
-
-### Stopping
-
-Click **Stop casting**. The TV view shows "Casting ended" and the network access described below closes. Casting also ends if you restart the server.
-
-### Network access and security
-
-While casting, SplitDeck opens a **second listener on your local network** (default port 8788) for the TV. It is not open otherwise, and your normal SplitDeck page stays on `127.0.0.1` only. The TV listener:
-
-- requires a random token that is in the address and changes every time you start casting;
-- serves only the TV view, nothing else (no dashboard, no files);
-- lets the TV play only the links currently on your dashboard, and only through the proxy sessions created for them;
-- closes when casting stops.
-
-Anyone on your network who has the address (with its token) while you are casting can watch what is on the dashboard, so only cast on a network you trust. On Windows, the firewall may ask the first time to allow Node.js on private networks. Allow it, or the TV cannot connect.
-
-### Notes and limits
-
-- The TV view works best with a few players. Each is a separate stream the TV must decode, so older TVs may struggle with many at once.
-- The TV chooses a quality that fits the size of each player on screen.
-- Opening the browser and sending the OK key use Samsung's remote-control WebSocket. Behaviour can differ between models and years. If the TV does not open the page by itself, open the shown address in its browser.
-- Chromecast, LG, Roku, Fire TV and Apple TV are listed when found but are not opened automatically yet; use the address shown. Roku, Fire TV and Apple TV may have no web browser, in which case use the device's own screen mirroring.
-- Facebook (embedded) players on the TV cannot be muted or unmuted by SplitDeck.
-
----
-
 ## 7. The Live browser
 
 Click **Live** in the top bar to open a panel listing what is live right now. Click any row to add it as a player. A row you added is outlined.
@@ -374,7 +306,6 @@ Environment variables, set before `npm start`:
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` | `8787` | Port the server listens on. |
-| `CAST_PORT` | `8788` | Port of the TV listener used while casting (the next free port is used if it is taken). |
 | `ALLOW_PRIVATE_URLS` | off | Set to `1` to let the link finder scan addresses on your own network. Leave it off unless you need it. |
 | `COOKIES` | `cookies.txt` if it exists | Path to a Netscape-format cookies file passed to yt-dlp, for sites that need a login. Optional. |
 | `YTDLP` | auto | Path to a yt-dlp executable. By default SplitDeck uses `bin/yt-dlp` (from `npm run setup`), and otherwise `yt-dlp` on your `PATH`. |
@@ -401,12 +332,6 @@ The page talks to the local server with these endpoints. They are internal and m
 | `GET /api/live?site=…` | Lists live streams for `twitch`, `kick` or `youtube`, or checks usernames for `tiktok`. Parameters: `lang`, `cat`, `q` (search), `after` (paging token), `users` (TikTok). Returns `items` and `next`. |
 | `GET /api/categories?site=…[&q=…]` | Category list for `twitch`, `kick` or `youtube`, optionally filtered by `q`. |
 | `GET /api/languages?site=…` | Languages available for `twitch` or `kick`. |
-| `GET /api/cast/scan` | Finds TVs on the network (about 6 seconds). |
-| `GET /api/cast/probe?ip=…` | Checks a TV by IP address and says whether it is a Samsung TV. |
-| `POST /api/cast/start` | Starts casting to a TV (or with no TV, just the address). |
-| `POST /api/cast/key` | Sends the OK key press to a Samsung TV (the only key allowed), to start full screen. |
-| `POST /api/cast/state` · `POST /api/cast/focus` · `POST /api/cast/stop` · `POST /api/cast/reopen` | Push the players and layout, enlarge a player, stop, and open the TV view on the TV again. |
-| `GET /api/cast/events` | Live status and focus updates for the dashboard (server-sent events). |
 | `GET /api/inspect?url=…` | Scans a page for stream links ([section 6b](#6b-find-stream-links)). Returns `page`, `results` (each with `url`, `kind`, `via`, `where`) and `scanned`. |
 | `GET /api/probe?url=…` | Tests one link and reports status, content type and, for playlists, quality levels and live/recorded. |
 | `GET /proxy?s=…&u=…` | Fetches a media URL with the right headers and adds CORS headers. Rewrites HLS playlists so every segment also goes through the proxy. |
@@ -447,7 +372,6 @@ A layout is a tree of splits. Leaves are player slots; each inner node splits it
 ```
 SplitDeck/
 ├── server.js            Node server: static files, resolver, proxy, Live lists
-├── cast.js              TV discovery, Samsung control, TV listener
 ├── setup.js             Downloads yt-dlp into bin/
 ├── start.bat            Windows launcher
 ├── package.json
@@ -459,12 +383,11 @@ SplitDeck/
     ├── index.html       Page structure
     ├── style.css        Styles
     ├── logo.svg         Logo and favicon
-    ├── tv.html / tv.js / tv.css   The TV view
     ├── app.js           All client logic
     └── vendor/          hls.js and mpegts.js
 ```
 
-`bin/` (yt-dlp) is created by `npm run setup` and `data/` (saved TV tokens and addresses) is created when you cast. Neither is committed.
+`bin/` (yt-dlp) is created by `npm run setup` and is not committed.
 
 ## 16. Troubleshooting
 
@@ -482,9 +405,6 @@ SplitDeck/
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
 | The link finder shows no results | The page probably loads its video with JavaScript, or protects it. The finder only reads source text. Try **Try the page link itself**. |
 | The link finder says an address is blocked | It refuses private-network addresses. See `ALLOW_PRIVATE_URLS` in [Configuration](#12-configuration). |
-| No TVs are found | The TV must be on and on the same network (not a guest network). Some routers block device discovery between devices ("AP isolation"). On Windows allow Node.js through the firewall. You can still add the TV by IP address. |
-| The TV does not open the page | Open the address shown in the Cast panel in the TV's browser. If it cannot connect, the computer's firewall is probably blocking port 8788. |
-| The TV says SplitDeck was not allowed | On the TV, check the external device / connection manager settings and the Allow prompt, then try again. Remove the TV's old SplitDeck entry in its settings if it keeps failing. |
 | Everything is stuck or wrong | Click **Reset**, then press **Ctrl+F5**. |
 
 ## 17. Limitations
@@ -496,7 +416,6 @@ SplitDeck/
 - Kick's language filter scans pages, so rare languages can be slow on the first load.
 - SplitDeck relies on public web endpoints and yt-dlp, not official APIs. Sites can change them without notice, which can break a feature until the project is updated.
 - Some content cannot be played: private, age-restricted, region-locked or login-only streams.
-- Casting opens the TV view automatically only on Samsung (Tizen) TVs; other TVs need the address opened by hand.
 - Facebook is best effort. The embedded fallback has no SplitDeck volume, mute, speed or quality controls.
 - X and Facebook have no entries in the Live browser.
 - The link finder reads only source text; it does not run scripts, so pages that build their player with JavaScript show no links.
@@ -504,7 +423,6 @@ SplitDeck/
 ## 18. Privacy and security
 
 - The server runs only on your computer and listens on `127.0.0.1`.
-- Casting opens a token-protected, read-only listener on your local network, only while you cast.
 - The link finder refuses private-network addresses by default, so it cannot be used to probe your home network.
 - Your optional `cookies.txt` stays on your computer and is excluded from Git. Treat it like a password.
 - Everything you save (players, layouts, watchlist) stays in your browser. Nothing is sent to a SplitDeck server.

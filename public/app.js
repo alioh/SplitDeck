@@ -145,7 +145,6 @@ function applyLayout(rebuildPop = true) {
   });
   placeDividers(dividers);
   if (rebuildPop) buildLayoutPop();
-  if (cast.active) castPush();
 }
 function placeDividers(dividers) {
   if (dividerEls.length !== dividers.length) {
@@ -231,7 +230,6 @@ function createTile(url, opts = {}) {
       <div class="hud top">
         <button class="grip" draggable="true" title="Drag onto another player to swap places">⋮⋮</button>
         <a class="lnk" target="_blank" rel="noopener noreferrer" title="Open the original page in a new tab">↗</a>
-        <button data-a="tv" hidden title="Enlarge this player on the TV (click again to go back)">📺</button>
         <div class="ttl"></div>
         <button data-a="main" title="Make this the main (first) player">★ Main</button>
         <button data-a="fit" title="Fit / fill">⤢</button>
@@ -260,8 +258,6 @@ function createTile(url, opts = {}) {
   t.tcur = el.querySelector('.tcur'); t.tdur = el.querySelector('.tdur');
   t.muteBtn = el.querySelector('[data-a=mute]');
   t.ttl = el.querySelector('.ttl');
-  t.el.querySelector('[data-a=tv]').hidden = !cast.active;
-  t.el.classList.toggle('tvfocus', cast.active && cast.focus === t.id);
   el.querySelector('.lnk').href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
   t.box.classList.toggle('fill', t.fill);
   t.ttl.textContent = url;
@@ -313,7 +309,6 @@ async function load(t, direct = false) {
   if (!tiles.includes(t)) return;
   t.kind = data.type; t.title = data.title || t.url; t.live = !!data.live; t.source = data.source || '';
   t.native = !!data.native; t.captions = data.captions || []; t.capIdx = -1;
-  if (cast.active) castPush();
   t.el.querySelector('[data-a=cc]').hidden = !t.captions.length; t.el.querySelector('[data-a=cc]').classList.remove('on');
   t.ttl.innerHTML = `${t.live ? '<span class="live">LIVE</span> ' : ''}<small>${esc(prettySource(t.source))}</small>${esc(t.title)}`;
   t.paused = false; setPlayIcon(t); t.ytDur = 0; t.ytCur = 0;
@@ -497,7 +492,6 @@ function action(t, a) {
       return setPlayIcon(t);
     case 'main': return swap(tiles.indexOf(t), 0);
     case 'cfg': return toggleCfg(t);
-    case 'tv': return castFocus(t.id);
     case 'cc': {
       if (t.capIdx >= 0) return setCaption(t, -1);
       const pref = (navigator.language || 'en').slice(0, 2);
@@ -627,7 +621,7 @@ function setupDnD(t) {
 function addUrl(u) {
   if (tiles.length >= MAX) { toast(`Maximum ${MAX} players`); return false; }
   // the first player gets sound; later ones start muted so streams don't talk over each other
-  createTile(u, { muted: tiles.some((o) => !o.muted) || (cast.active && cast.muteHere) });
+  createTile(u, { muted: tiles.some((o) => !o.muted) });
   save();
   return true;
 }
@@ -653,7 +647,7 @@ $('#showUiBtn').onclick = () => setImmersive(false);
 document.addEventListener('keydown', (e) => {
   if (e.target === input) { if (e.key === 'Escape') input.blur(); return; }
   if (e.key === 'h' || e.key === 'H') setImmersive(!document.body.classList.contains('immersive'));
-  if (e.key === 'Escape') { setImmersive(false); openLive(false); openInspect(false); openCast(false); }
+  if (e.key === 'Escape') { setImmersive(false); openLive(false); openInspect(false); }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
 });
 const topbar = $('#topbar');
@@ -858,7 +852,7 @@ async function loadLive() {
     appendItems(data.items); afterPage(data, my);
   } catch (e) { msg('err', 'Could not load: ' + esc(e.message)); }
 }
-function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; castEl.hidden = true; loadLive(); } }
+function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; loadLive(); } }
 $('#liveBtn').onclick = (e) => { e.stopPropagation(); openLive(liveEl.hidden); };
 $('#liveClose').onclick = () => openLive(false);
 $('#liveRefresh').onclick = () => loadLive();
@@ -873,7 +867,7 @@ $('#liveTabs').onclick = (e) => {
 const insEl = $('#inspect'), insForm = $('#inspForm'), insList = $('#inspList'), insInput = insForm.querySelector('input');
 function openInspect(on = true) {
   insEl.hidden = !on;
-  if (on) { liveEl.hidden = true; castEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
+  if (on) { liveEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
 }
 $('#inspectBtn').onclick = (e) => { e.stopPropagation(); openInspect(insEl.hidden); };
 $('#inspClose').onclick = () => openInspect(false);
@@ -947,135 +941,6 @@ insForm.onsubmit = async (e) => {
     renderInspect(d);
   } catch (err) { insList.innerHTML = '<div class="lmsg err">' + esc(err.message) + '</div>'; }
 };
-
-/* ---------------- cast to TV ---------------- */
-const castEl = $('#castPanel'), castBody = $('#castBody'), castBtn = $('#castBtn');
-const cast = { active: false, phase: 'idle', message: '', tv: null, tvUrl: '', tvClients: 0, focus: null, es: null, devices: null, scanning: false, error: '', restore: null, pushed: false, muteHere: true, timer: null };
-const PHASE_TEXT = { connecting: 'Connecting to the TV…', allow: 'Look at your TV and choose “Allow” with the remote.', opening: 'Opening the TV view…', opened: 'Waiting for the TV to load the view…', manual: 'Open the address below in the TV’s web browser.' };
-
-function openCast(on = true) {
-  castEl.hidden = !on;
-  if (on) { liveEl.hidden = true; insEl.hidden = true; renderCast(); }
-}
-castBtn.onclick = (e) => { e.stopPropagation(); openCast(castEl.hidden); };
-$('#castClose').onclick = () => openCast(false);
-
-async function castApi(path, body) {
-  const r = await fetch('/api/cast/' + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || 'Request failed');
-  return d;
-}
-function castPush() {
-  clearTimeout(cast.timer);
-  cast.timer = setTimeout(async () => {
-    if (!cast.active) return;
-    const { rects } = tiles.length ? computeLayout(currentLayout().tree) : { rects: [] };
-    try {
-      await castApi('state', { tiles: tiles.map((t, i) => ({ id: t.id, url: t.url, title: t.title, fill: t.fill, rect: rects[i] })) });
-      cast.pushed = true;
-    } catch {}
-  }, 120);
-}
-function castFocus(id) { castApi('focus', { id: cast.focus === id ? null : id }).catch((e) => toast(e.message)); }
-
-// mute this device while casting (restored afterwards)
-function castLocalAudio(on) {
-  if (on && cast.muteHere && !cast.restore) {
-    cast.restore = tiles.map((t) => ({ id: t.id, muted: t.muted }));
-    tiles.forEach((t) => { t.muted = true; applyAudio(t); applyAudioUI(t); });
-  } else if (!on && cast.restore) {
-    cast.restore.forEach((r) => { const t = tiles.find((x) => x.id === r.id); if (t) { t.muted = r.muted; applyAudio(t); applyAudioUI(t); } });
-    cast.restore = null;
-  }
-}
-function castSync() {
-  castBtn.classList.toggle('on', cast.active);
-  tiles.forEach((t) => {
-    t.el.querySelector('[data-a=tv]').hidden = !cast.active;
-    t.el.classList.toggle('tvfocus', cast.active && cast.focus === t.id);
-    t.el.querySelector('[data-a=tv]').classList.toggle('on', cast.active && cast.focus === t.id);
-  });
-}
-function onCastStatus(st) {
-  const wasActive = cast.active;
-  Object.assign(cast, { active: st.active, phase: st.phase, message: st.message, tv: st.tv, tvUrl: st.tvUrl, tvClients: st.tvClients, focus: st.focus });
-  if (cast.active && !wasActive) { cast.pushed = false; castLocalAudio(true); }
-  if (!cast.active && wasActive) { castLocalAudio(false); cast.pushed = false; }
-  if (cast.active && !cast.pushed) castPush();
-  castSync();
-  if (!castEl.hidden) renderCast();
-}
-function connectCastEvents() {
-  if (!window.EventSource) return;
-  cast.es = new EventSource('/api/cast/events');
-  cast.es.addEventListener('status', (e) => { try { onCastStatus(JSON.parse(e.data)); } catch {} });
-  cast.es.addEventListener('focus', (e) => { try { cast.focus = JSON.parse(e.data).id; castSync(); if (!castEl.hidden) renderCast(); } catch {} });
-}
-
-async function castScan() {
-  cast.scanning = true; cast.error = ''; renderCast();
-  try { cast.devices = (await castApi('scan')).items; }
-  catch (e) { cast.error = e.message; }
-  cast.scanning = false; renderCast();
-}
-async function castStart(tv) {
-  cast.error = '';
-  try { onCastStatus(await castApi('start', tv || {})); }
-  catch (e) { cast.error = e.message; renderCast(); }
-}
-const tvKindLabel = { samsung: 'Samsung', lg: 'LG', sony: 'Sony', chromecast: 'Chromecast', roku: 'Roku', other: 'Other' };
-
-function renderCast() {
-  if (castEl.hidden) return;
-  if (cast.active) return renderCastActive();
-  const rows = (cast.devices || []).map((d, i) => {
-    const auto = d.driver === 'samsung';
-    return '<div class="tvrow" data-i="' + i + '"><div class="tvmeta"><div class="tvname">' + esc(d.name) + '</div><div class="tvsub">' + esc([tvKindLabel[d.kind] || 'TV', d.model, d.ip].filter(Boolean).join(' · ')) + (d.saved ? ' · saved' : '') + '</div></div>' +
-      '<button class="tvgo">' + (auto ? 'Cast' : 'Show address') + '</button></div>';
-  }).join('');
-  castBody.innerHTML = '<div class="cinfo">Your TV and this computer must be on the same network. SplitDeck will show all your players on the TV, and you can enlarge one and go back.</div>' +
-    '<div class="cact"><button id="castScan"' + (cast.scanning ? ' disabled' : '') + '>' + (cast.scanning ? 'Scanning…' : '🔍 Scan for TVs') + '</button></div>' +
-    (cast.error ? '<div class="cerr">' + esc(cast.error) + '</div>' : '') +
-    (cast.devices ? (rows || '<div class="lmsg">No TVs found. Check that the TV is on and on the same network, or add its IP address below.</div>') : '') +
-    '<form class="srch cmanual"><input type="text" placeholder="TV IP address, e.g. 192.168.1.20" spellcheck="false" autocomplete="off"><button>Add</button></form>' +
-    '<label class="cchk"><input type="checkbox" id="castMute"' + (cast.muteHere ? ' checked' : '') + '> Mute this device while casting</label>' +
-    '<div class="hint cnote"><b>Samsung TVs:</b> SplitDeck asks the TV to open the view in its web browser. The first time, the TV asks you to Allow.<br><b>Other TVs:</b> you get an address to open in the TV’s web browser.<br><button class="clink" id="castNoTv">Just show me the address</button></div>';
-  $('#castScan').onclick = castScan;
-  $('#castMute').onchange = (e) => { cast.muteHere = e.target.checked; };
-  $('#castNoTv').onclick = () => castStart(null);
-  castBody.querySelectorAll('.tvrow').forEach((row) => { row.querySelector('.tvgo').onclick = () => castStart(cast.devices[+row.dataset.i]); });
-  castBody.querySelector('.cmanual').onsubmit = async (e) => {
-    e.preventDefault();
-    const ip = e.target.querySelector('input').value.trim(); if (!ip) return;
-    try { const tv = await castApi('probe?ip=' + encodeURIComponent(ip)); castStart(tv); }
-    catch (err) { cast.error = err.message; renderCast(); }
-  };
-}
-function renderCastActive() {
-  const tvName = cast.tv ? cast.tv.name : 'a TV';
-  const live = cast.tvClients > 0, isErr = cast.phase === 'error';
-  const status = live ? 'Casting. The TV is showing your players.' : isErr ? cast.message : (cast.message || PHASE_TEXT[cast.phase] || '');
-  const rows = tiles.map((t, i) => {
-    const on = cast.focus === t.id, name = t.title || t.url.replace(/^https?:\/\//, '').slice(0, 60);
-    return '<div class="trow"><span class="tnum">' + (i + 1) + '</span><span class="tname">' + esc(name) + '</span><button data-id="' + t.id + '"' + (on ? ' class="on"' : '') + '>' + (on ? 'Back to all' : 'Enlarge') + '</button></div>';
-  }).join('');
-  castBody.innerHTML = '<div class="cstat ' + (live ? 'ok' : isErr ? 'bad' : '') + '"><span class="cdot"></span><div><b>Casting to ' + esc(tvName) + '</b><div>' + esc(status) + '</div></div></div>' +
-    '<div class="cact">' + (cast.focus !== null ? '<button id="castAll">Show all players</button>' : '') +
-    (cast.tv && cast.tv.driver === 'samsung' ? '<button id="castFull" title="Sends an OK key press to the TV, which makes the page full screen">⛶ Full screen on TV</button>' : '') +
-    (cast.tv && cast.tv.driver === 'samsung' ? '<button id="castAgain">' + (isErr ? 'Try again' : 'Open on TV again') + '</button>' : '') +
-    '<button id="castStop" class="danger">Stop casting</button></div>' +
-    '<div class="caddr"><div class="cinfo">If the TV does not open it by itself, open this address in the TV’s web browser:</div><code>' + esc(cast.tvUrl) + '</code><button id="castCopy">Copy</button></div>' +
-    '<div class="lsec">Players on the TV</div>' + (rows || '<div class="lmsg">Add players on the dashboard and they appear on the TV.</div>') +
-    '<div class="hint cnote">For a full-screen picture, press OK once on the TV remote (or use “Full screen on TV”). Then: arrow keys move, OK enlarges the highlighted player, Back returns to all.</div>';
-  const all = $('#castAll'); if (all) all.onclick = () => castFocus(cast.focus);
-  const full = $('#castFull'); if (full) full.onclick = async (e) => { e.target.disabled = true; try { await castApi('key', { key: 'KEY_ENTER' }); } catch (err) { toast(err.message); } e.target.disabled = false; };
-  const again = $('#castAgain'); if (again) again.onclick = () => castApi('reopen', {}).catch((e) => toast(e.message));
-  $('#castStop').onclick = () => castApi('stop', {}).catch((e) => toast(e.message));
-  $('#castCopy').onclick = async (e) => { const ok = await copyText(cast.tvUrl); e.target.textContent = ok ? 'Copied ✓' : 'Copy failed'; setTimeout(() => { e.target.textContent = 'Copy'; }, 1500); };
-  castBody.querySelectorAll('.trow button').forEach((b) => { b.onclick = () => castFocus(+b.dataset.id); });
-}
-connectCastEvents();
 
 /* ---------------- reset ---------------- */
 $('#resetBtn').onclick = () => {

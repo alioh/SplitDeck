@@ -1,9 +1,6 @@
 # downloaded by `npm run setup`
 bin/
 
-# saved TV tokens and addresses
-data/
-
 # editor / tool config
 .claude/
 
