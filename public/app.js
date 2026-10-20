@@ -1062,12 +1062,14 @@ function renderCastActive() {
   }).join('');
   castBody.innerHTML = '<div class="cstat ' + (live ? 'ok' : isErr ? 'bad' : '') + '"><span class="cdot"></span><div><b>Casting to ' + esc(tvName) + '</b><div>' + esc(status) + '</div></div></div>' +
     '<div class="cact">' + (cast.focus !== null ? '<button id="castAll">Show all players</button>' : '') +
+    (cast.tv && cast.tv.driver === 'samsung' ? '<button id="castFull" title="Sends an OK key press to the TV, which makes the page full screen">⛶ Full screen on TV</button>' : '') +
     (cast.tv && cast.tv.driver === 'samsung' ? '<button id="castAgain">' + (isErr ? 'Try again' : 'Open on TV again') + '</button>' : '') +
     '<button id="castStop" class="danger">Stop casting</button></div>' +
     '<div class="caddr"><div class="cinfo">If the TV does not open it by itself, open this address in the TV’s web browser:</div><code>' + esc(cast.tvUrl) + '</code><button id="castCopy">Copy</button></div>' +
     '<div class="lsec">Players on the TV</div>' + (rows || '<div class="lmsg">Add players on the dashboard and they appear on the TV.</div>') +
-    '<div class="hint cnote">On the TV remote: arrow keys move, OK enlarges the highlighted player, Back returns to all.</div>';
+    '<div class="hint cnote">For a full-screen picture, press OK once on the TV remote (or use “Full screen on TV”). Then: arrow keys move, OK enlarges the highlighted player, Back returns to all.</div>';
   const all = $('#castAll'); if (all) all.onclick = () => castFocus(cast.focus);
+  const full = $('#castFull'); if (full) full.onclick = async (e) => { e.target.disabled = true; try { await castApi('key', { key: 'KEY_ENTER' }); } catch (err) { toast(err.message); } e.target.disabled = false; };
   const again = $('#castAgain'); if (again) again.onclick = () => castApi('reopen', {}).catch((e) => toast(e.message));
   $('#castStop').onclick = () => castApi('stop', {}).catch((e) => toast(e.message));
   $('#castCopy').onclick = async (e) => { const ok = await copyText(cast.tvUrl); e.target.textContent = ok ? 'Copied ✓' : 'Copy failed'; setTimeout(() => { e.target.textContent = 'Copy'; }, 1500); };

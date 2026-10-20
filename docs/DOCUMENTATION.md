@@ -231,7 +231,19 @@ Your TV and the computer (or Raspberry Pi) running SplitDeck must be on the same
 1. Click **Cast**, then **Scan for TVs**. If your TV is not listed, type its IP address under the list and press **Add**.
 2. Click **Cast** next to the TV.
 3. On a Samsung TV, look at the TV and choose **Allow** with the remote (first time only). The panel shows the steps: connecting, waiting for Allow, opening, then **Casting**.
-4. Add or change players on the dashboard. The TV follows: adding and closing players, swapping, changing the layout and dragging dividers all update the TV.
+4. Press **OK** once on the TV remote (or click **Full screen on TV** in the Cast panel). The first key press makes the page full screen, hiding the browser's address bar and menus.
+5. Add or change players on the dashboard. The TV follows: adding and closing players, swapping, changing the layout and dragging dividers all update the TV.
+
+### Full screen and the TV's browser
+
+Samsung TVs let other devices start only the TV's **built-in web browser** with a web address, so the TV view opens inside that browser, with its address bar. Browsers only allow full screen after a key press, so SplitDeck waits for one:
+
+- Press **OK** on the TV remote. The first press makes the page full screen and does nothing else; later presses enlarge the highlighted player.
+- Or click **Full screen on TV** in the Cast panel. SplitDeck sends an OK key press to the TV for you (it can send only that key).
+- If the TV's browser does not allow it, use the full-screen option in the browser's own menu.
+- When all players are shown, **Back** goes back in the TV browser or leaves full screen.
+
+A true app-style window with no browser at all would need a small SplitDeck app installed on the TV through Samsung's Developer Mode. SplitDeck does not do that yet.
 
 ### Enlarging a player
 
@@ -262,7 +274,7 @@ Anyone on your network who has the address (with its token) while you are castin
 
 - The TV view works best with a few players. Each is a separate stream the TV must decode, so older TVs may struggle with many at once.
 - The TV chooses a quality that fits the size of each player on screen.
-- Opening the browser on a Samsung TV uses Samsung's remote-control WebSocket. Behaviour can differ between models and years. If the TV does not open the page by itself, open the shown address in its browser.
+- Opening the browser and sending the OK key use Samsung's remote-control WebSocket. Behaviour can differ between models and years. If the TV does not open the page by itself, open the shown address in its browser.
 - Chromecast, LG, Roku, Fire TV and Apple TV are listed when found but are not opened automatically yet; use the address shown. Roku, Fire TV and Apple TV may have no web browser, in which case use the device's own screen mirroring.
 - Facebook (embedded) players on the TV cannot be muted or unmuted by SplitDeck.
 
@@ -392,6 +404,7 @@ The page talks to the local server with these endpoints. They are internal and m
 | `GET /api/cast/scan` | Finds TVs on the network (about 6 seconds). |
 | `GET /api/cast/probe?ip=…` | Checks a TV by IP address and says whether it is a Samsung TV. |
 | `POST /api/cast/start` | Starts casting to a TV (or with no TV, just the address). |
+| `POST /api/cast/key` | Sends the OK key press to a Samsung TV (the only key allowed), to start full screen. |
 | `POST /api/cast/state` · `POST /api/cast/focus` · `POST /api/cast/stop` · `POST /api/cast/reopen` | Push the players and layout, enlarge a player, stop, and open the TV view on the TV again. |
 | `GET /api/cast/events` | Live status and focus updates for the dashboard (server-sent events). |
 | `GET /api/inspect?url=…` | Scans a page for stream links ([section 6b](#6b-find-stream-links)). Returns `page`, `results` (each with `url`, `kind`, `via`, `where`) and `scanned`. |

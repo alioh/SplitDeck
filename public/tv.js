@@ -12,6 +12,7 @@
   var focusId = null;          // enlarged tile id, or null for the whole grid
   var selId = null;            // tile highlighted for remote navigation
   var ringOn = false, ringTimer = null; // the selection ring only shows while the remote is in use
+  var fsTried = false;         // we already asked the browser for full screen once
   var gesture = false;         // the user has pressed a key (needed before sound is allowed on some TVs)
   var osdTimer = null, helpTimer = null;
 
@@ -50,9 +51,9 @@
     osd.textContent = text; osd.className = 'on';
     clearTimeout(osdTimer); osdTimer = setTimeout(function () { osd.className = ''; }, 4000);
   }
-  function showHelp() {
+  function showHelp(ms) {
     help.className = 'on';
-    clearTimeout(helpTimer); helpTimer = setTimeout(function () { help.className = ''; }, 6000);
+    clearTimeout(helpTimer); helpTimer = setTimeout(function () { help.className = ''; }, ms || 6000);
   }
 
   /* ---------- players ---------- */
@@ -204,6 +205,15 @@
     if (id !== null) { try { history.pushState({ f: 1 }, ''); } catch (e) {} }
   }
 
+  /* ---------- full screen (browsers only allow it after a key press or click) ---------- */
+  function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement); }
+  function goFull() {
+    var el = document.documentElement, fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!fn) return false;
+    try { var pr = fn.call(el); if (pr && pr.catch) pr.catch(function () {}); } catch (e) { return false; }
+    return true;
+  }
+
   /* ---------- remote control ---------- */
   function move(dir) {
     var cur = tileById(selId); if (!cur) return;
@@ -228,6 +238,7 @@
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode, handled = true;
     if (!gesture) { gesture = true; applyAllAudio(); }
+    if (!isFull() && !fsTried) { fsTried = true; goFull(); if (k === 13) { e.preventDefault(); return; } } // the first OK only goes full screen
     showHelp();
     ringOn = true; clearTimeout(ringTimer); ringTimer = setTimeout(function () { ringOn = false; layout(); }, 8000);
     if (k === 37) { if (focusId !== null) step(-1); else move('left'); }
@@ -239,7 +250,7 @@
     else handled = false;
     if (handled) e.preventDefault();
   });
-  document.addEventListener('click', function () { gesture = true; applyAllAudio(); });
+  document.addEventListener('click', function () { gesture = true; applyAllAudio(); if (!isFull() && !fsTried) { fsTried = true; goFull(); } });
   window.addEventListener('popstate', function () { if (focusId !== null) post('/tv/focus', { id: null }); }); // the TV's Back button returns to the grid
 
   /* ---------- connection to the dashboard ---------- */
@@ -250,7 +261,7 @@
     es.addEventListener('state', function (e) { try { applyState(JSON.parse(e.data)); } catch (err) {} });
     es.addEventListener('focus', function (e) { try { var d = JSON.parse(e.data); if (d.id !== focusId) setFocus(d.id); } catch (err) {} });
     es.addEventListener('bye', function () { es.close(); showMsg('Casting ended', 'You can close this page', false); });
-    es.onopen = function () { if (tiles.length) hideMsg(); else showMsg('SplitDeck TV', 'Waiting for the dashboard…', false); };
+    es.onopen = function () { if (tiles.length) hideMsg(); else showMsg('SplitDeck TV', 'Waiting for the dashboard…', false); if (!isFull()) showHelp(12000); };
     es.onerror = function () { showMsg('Reconnecting…', '', true); };
   }
   if (!token) showMsg('SplitDeck TV', 'This link is missing its code. Start casting from SplitDeck.', false);

@@ -115,7 +115,7 @@ module.exports = function createCast(ctx) {
     } catch { return null; } finally { clearTimeout(t); }
   }
   // one remote-control session: connect (the TV may ask the user to allow it), then ask it to open the browser at `url`
-  function samsungSession(ip, target, url, status) {
+  function samsungSession(ip, target, message, status, doingText) {
     const tokens = tokenStore(), token = tokens[ip] || '';
     const name = Buffer.from('SplitDeck').toString('base64');
     const p = '/api/v2/channels/samsung.remote.control?name=' + name + (token ? '&token=' + token : '');
@@ -133,8 +133,8 @@ module.exports = function createCast(ctx) {
         if (ev === 'ms.channel.connect') {
           connected = true;
           if (m.data && m.data.token) { const all = tokenStore(); all[ip] = String(m.data.token); writeData('cast-tokens.json', all); }
-          status('opening', 'Opening the TV view…');
-          ws.send(JSON.stringify({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: { action_type: 'NATIVE_LAUNCH', appId: 'org.tizen.browser', metaTag: url } } }));
+          status('opening', doingText);
+          ws.send(JSON.stringify(message));
           setTimeout(() => end(), 1800); // give the TV a moment to report an error before we hang up
         } else if (ev === 'ms.channel.unauthorized' || ev === 'ms.error' || ev === 'ms.channel.timeOut') {
           end(Object.assign(new Error(ev === 'ms.channel.timeOut' ? 'The TV timed out waiting for Allow.' : 'The TV did not allow SplitDeck. In the TV settings, check Connection Manager / Device Connection manager, then try again.'), { fatal: true }));
@@ -142,15 +142,19 @@ module.exports = function createCast(ctx) {
       });
     }));
   }
-  async function samsungLaunch(ip, url, status, o = {}) {
+  // open a connection to the TV, send one message, hang up (tries the secure port first, then the plain one)
+  async function samsungSend(ip, message, status, doingText, o = {}) {
     const targets = [{ secure: true, port: o.securePort || 8002 }, { secure: false, port: o.plainPort || 8001 }];
     let last;
     for (const t of targets) {
-      try { return await samsungSession(ip, t, url, status); }
+      try { return await samsungSession(ip, t, message, status, doingText); }
       catch (e) { last = e; if (e.fatal) throw e; }
     }
     throw last || new Error('Could not reach the TV');
   }
+  const samsungLaunch = (ip, url, status, o = {}) => samsungSend(ip, { method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: { action_type: 'NATIVE_LAUNCH', appId: 'org.tizen.browser', metaTag: url } } }, status, 'Opening the TV view…', o);
+  // press a remote-control key on the TV (used to give the TV page the key press browsers require before full screen)
+  const samsungKey = (ip, key, status, o = {}) => samsungSend(ip, { method: 'ms.remote.control', params: { Cmd: 'Click', DataOfCmd: key, Option: 'false', TypeOfRemote: 'SendRemoteKey' } }, status, 'Sending the key to the TV…', o);
 
   /* ---------------- finding TVs (SSDP) ---------------- */
   const ST = ['urn:samsung.com:device:RemoteControlReceiver:1', 'urn:schemas-upnp-org:device:MediaRenderer:1', 'urn:dial-multiscreen-org:service:dial:1'];
@@ -372,6 +376,13 @@ module.exports = function createCast(ctx) {
         json(res, 200, { ok: setFocus(b.id === null || b.id === undefined ? null : +b.id) }); return true;
       }
       if (req.method === 'POST' && p === '/api/cast/stop') { stopSession(); json(res, 200, { ok: true }); return true; }
+      if (req.method === 'POST' && p === '/api/cast/key') {
+        const b = await readJson(req, 4096);
+        if (!S.active || !S.tv || S.tv.driver !== 'samsung') { json(res, 409, { error: 'Only available when casting to a Samsung TV' }); return true; }
+        if (b.key !== 'KEY_ENTER') { json(res, 422, { error: 'That key is not allowed' }); return true; } // only OK: it is what starts full screen
+        await samsungKey(S.tv.ip, 'KEY_ENTER', () => {});
+        json(res, 200, { ok: true }); return true;
+      }
       if (req.method === 'POST' && p === '/api/cast/reopen') {
         if (!S.active || !S.tv || S.tv.driver !== 'samsung') { json(res, 409, { error: 'Nothing to reopen' }); return true; }
         setPhase('connecting', 'Connecting to the TV…');
@@ -384,5 +395,5 @@ module.exports = function createCast(ctx) {
     return false;
   }
 
-  return { handleLocal, stopSession, _test: { samsungLaunch, wsConnect, ssdpSearch, describe, S } };
+  return { handleLocal, stopSession, _test: { samsungLaunch, samsungKey, wsConnect, ssdpSearch, describe, S } };
 };
