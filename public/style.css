@@ -284,3 +284,6 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
 .iprobe { margin-top: 7px; font-size: 12px; line-height: 1.4; color: var(--dim); }
 .iprobe.good { color: #7ddc9a; } .iprobe.bad { color: #ff9aa4; }
 .lmsg small { color: var(--dim); line-height: 1.5; }
+
+/* the mute-all button shows when everything is muted */
+#muteAllBtn.on { background: #3a1a20; border-color: #7a2a36; }

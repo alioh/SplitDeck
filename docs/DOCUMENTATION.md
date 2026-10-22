@@ -80,7 +80,7 @@ The first player you add has sound. Later players start muted so they do not tal
 | Counter (`3 / 8`) | Players in use. |
 | **Live** | Opens the Live browser ([section 7](#7-the-live-browser)). |
 | **Layout** | Choose an arrangement ([section 5](#5-layouts-and-resizing)). |
-| **All** (speaker) | Mutes or unmutes every player. |
+| **Mute all** / **Unmute all** (speaker) | Mutes every player. When everything is muted the button turns red and says **Unmute all**, which turns the sound back on for every player. |
 | **Reset** | Closes everything and starts fresh ([section 9](#9-saved-data-and-reset)). |
 | **Hide UI** | Hides the top bar so only video remains. |
 
@@ -399,7 +399,7 @@ SplitDeck/
 | The port is already in use | Another copy is running. Close it, or start with a different `PORT`. |
 | `yt-dlp` not found | Run `npm run setup`, or set `YTDLP` to its path. |
 | Kick lists say "Kick blocked the request" | Make sure `curl` is installed and on your `PATH`. If Kick changed its protection, this may need a code update. |
-| No sound | Players after the first start muted. Use the speaker, **All**, or **Solo**. Browsers may also block sound until you click the page. |
+| No sound | Players after the first start muted. Use a player's speaker, **Unmute all**, or **Solo**. Browsers may also block sound until you click the page. |
 | A YouTube video shows YouTube's overlays | The clean player could not load it and the embed was used. Try **⟳**, or update yt-dlp. |
 | Captions button missing | The video has no captions, or the player is YouTube's embed. |
 | A Facebook link shows "Video unavailable" | The video is private, removed or not public. The embedded player can only show public videos. |

@@ -466,7 +466,13 @@ function applyAudioUI(t) {
   updateMuteAll();
 }
 function setPlayIcon(t) { t.el.querySelector('[data-a=play]').textContent = t.paused ? '▶' : '⏸'; }
-function updateMuteAll() { $('#muteAllBtn').innerHTML = '<span class="ic">' + (tiles.length && tiles.every((t) => t.muted) ? '🔇' : '🔊') + '</span><span class="lbl">All</span>'; }
+function updateMuteAll() {
+  const allMuted = tiles.length > 0 && tiles.every((t) => t.muted), b = $('#muteAllBtn');
+  // the button always offers the action it will do next
+  b.innerHTML = '<span class="ic">' + (allMuted ? '🔇' : '🔊') + '</span><span class="lbl">' + (allMuted ? 'Unmute all' : 'Mute all') + '</span>';
+  b.title = allMuted ? 'Unmute every player' : 'Mute every player';
+  b.classList.toggle('on', allMuted);
+}
 
 function action(t, a) {
   switch (a) {
