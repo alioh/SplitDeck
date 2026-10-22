@@ -11,7 +11,8 @@ Works with YouTube, TikTok LIVE, Twitch, Kick, X and Facebook (best effort), and
 ## Features
 
 - Up to 8 players. A player only exists when you add it, so there are no empty slots.
-- Many layouts per player count. Drag a player's handle onto another to swap places.
+- Many layouts per player count. Press anywhere on a player and move it onto another to swap places.
+- Focus one player full size with sound while the others keep running muted, then go back to the grid.
 - Drag the dividers between players to resize them.
 - Per-player volume, mute and solo, plus a toolbar with speed, quality and captions.
 - A built-in "Live now" browser with search, language and category filters.

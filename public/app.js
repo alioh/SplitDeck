@@ -102,6 +102,8 @@ const layoutPref = {};     // n -> layout name
 const ratioStore = {};     // "n:name" -> saved divider ratios
 const layoutCache = {};    // n -> built layouts (kept so dragged ratios persist while you work)
 let nextId = 1;
+let focusId = null;      // the player shown alone, full size (null = normal grid)
+let focusRestore = null; // each player's mute state before focusing, so Back can put it back
 
 const snapshot = () => tiles.map((t) => ({ url: t.url, vol: t.vol, muted: t.muted, fill: t.fill }));
 function save() {
@@ -130,6 +132,7 @@ function currentLayout() {
 
 /* ---------------- rendering ---------------- */
 let dividerEls = [];
+const FULL_RECT = { x: 0, y: 0, w: 1, h: 1 };
 function applyLayout(rebuildPop = true) {
   const n = tiles.length;
   emptyEl.hidden = n > 0;
@@ -140,10 +143,13 @@ function applyLayout(rebuildPop = true) {
   const lay = currentLayout();
   const { rects, dividers } = computeLayout(lay.tree);
   tiles.forEach((t, i) => {
-    const s = rects[i];
+    const s = focusId === t.id ? FULL_RECT : rects[i];
     Object.assign(t.el.style, { left: s.x * 100 + '%', top: s.y * 100 + '%', width: s.w * 100 + '%', height: s.h * 100 + '%' });
+    t.el.classList.toggle('focused', focusId === t.id);
+    const fb = t.el.querySelector('[data-a=focus]');
+    if (fb) { fb.classList.toggle('on', focusId === t.id); fb.title = focusId === t.id ? 'Back to the grid (Esc)' : 'Show only this player, full size, with sound (Esc to go back)'; }
   });
-  placeDividers(dividers);
+  placeDividers(focusId !== null ? [] : dividers); // no resize handles while one player fills the stage
   if (rebuildPop) buildLayoutPop();
 }
 function placeDividers(dividers) {
@@ -235,6 +241,7 @@ function createTile(url, opts = {}) {
         <button data-a="fit" title="Fit / fill">⤢</button>
         <button data-a="reload" title="Reload">⟳</button>
         <button data-a="fs" title="Fullscreen">⛶</button>
+        <button data-a="focus" title="Show only this player, full size, with sound (Esc to go back)">▣</button>
         <button data-a="close" title="Close">✕</button>
       </div>
       <div class="hud bot">
@@ -285,12 +292,14 @@ function createTile(url, opts = {}) {
   const bump = () => { clearTimeout(t.hideT); t.hideT = setTimeout(() => { if (!t.menu) t.box.classList.remove('active'); }, 4500); };
   t.box.addEventListener('pointerup', (e) => {
     if (e.pointerType === 'mouse') return;
+    if (t.dragged) { t.dragged = false; return; }
     if (e.target.closest('.hud, .cfgmenu, .divider')) { bump(); return; }
     const on = !t.box.classList.contains('active');
     tiles.forEach((o) => o.box.classList.remove('active'));
     if (on) { t.box.classList.add('active'); bump(); }
   });
   setupDnD(t);
+  setupPointerDrag(t);
   applyAudioUI(t);
   applyLayout();
   load(t);
@@ -499,6 +508,7 @@ function action(t, a) {
       return setPlayIcon(t);
     case 'main': return swap(tiles.indexOf(t), 0);
     case 'cfg': return toggleCfg(t);
+    case 'focus': return focusId === t.id ? exitFocus() : enterFocus(t);
     case 'cc': {
       if (t.capIdx >= 0) return setCaption(t, -1);
       const pref = (navigator.language || 'en').slice(0, 2);
@@ -565,7 +575,43 @@ function renderCfg(t) {
 }
 document.addEventListener('mousedown', (e) => tiles.forEach((t) => { if (t.menu && !t.menu.contains(e.target) && !e.target.closest('[data-a=cfg]')) closeCfg(t); }));
 
+/* ---------------- focus: one player alone, full size, with sound ---------------- */
+const focusBackBtn = $('#focusBack');
+function enterFocus(t) {
+  if (focusId === null) {
+    focusRestore = tiles.map((o) => ({ id: o.id, muted: o.muted }));
+    try { history.pushState({ splitdeckFocus: 1 }, ''); } catch {} // the phone's Back button then returns to the grid too
+  }
+  focusId = t.id;
+  // sound only from this player; the others keep running, muted, in the background
+  tiles.forEach((o) => {
+    o.muted = o.id !== t.id;
+    if (!o.muted && o.vol === 0) o.vol = 0.6;
+    applyAudio(o); applyAudioUI(o);
+  });
+  document.body.classList.add('focusing');
+  focusBackBtn.hidden = false;
+  tiles.forEach((o) => o.box.classList.remove('active'));
+  applyLayout(false);
+}
+function exitFocus(fromHistory) {
+  if (focusId === null) return;
+  focusId = null;
+  if (focusRestore) {
+    focusRestore.forEach((r) => { const o = tiles.find((x) => x.id === r.id); if (o) { o.muted = r.muted; applyAudio(o); applyAudioUI(o); } });
+    focusRestore = null;
+  }
+  document.body.classList.remove('focusing');
+  focusBackBtn.hidden = true;
+  applyLayout(false);
+  save();
+  if (!fromHistory && history.state && history.state.splitdeckFocus) { try { history.back(); } catch {} }
+}
+focusBackBtn.onclick = () => exitFocus();
+window.addEventListener('popstate', () => { if (focusId !== null) exitFocus(true); });
+
 function removeTile(t) {
+  if (focusId === t.id) exitFocus(); // closing the focused player returns to the grid
   const i = tiles.indexOf(t); if (i < 0) return;
   destroyMedia(t); t.el.remove(); tiles.splice(i, 1);
   applyLayout(); updateMuteAll(); save();
@@ -578,6 +624,50 @@ function swap(i, j) {
 
 /* ---------------- drag & drop (swap places) ---------------- */
 let dragSrc = null;
+// Drag anywhere on a player (not just the handle). Works for mouse and touch; a plain click or tap is unaffected because the
+// drag only starts after the pointer has moved a few pixels. (Players inside an iframe, like an embedded player, cannot be
+// dragged this way because the iframe swallows the mouse; use the handle for those.)
+function setupPointerDrag(t) {
+  const box = t.box, dz = t.el.querySelector('.dropzone');
+  box.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || focusId !== null) return;
+    if (e.target.closest('.hud, .cfgmenu, .dropzone, .divider, button, a, input, select, textarea')) return;
+    const st = { x: e.clientX, y: e.clientY, id: e.pointerId, on: false }, thr = e.pointerType === 'mouse' ? 6 : 10;
+    let over = null;
+    try { box.setPointerCapture(e.pointerId); } catch {}
+    const move = (ev) => {
+      if (ev.pointerId !== st.id) return;
+      if (!st.on) {
+        if (Math.hypot(ev.clientX - st.x, ev.clientY - st.y) < thr) return;
+        st.on = true; t.dragged = true;
+        dragSrc = t; document.body.classList.add('dragging'); t.el.classList.add('dragsrc');
+        tiles.forEach((o) => o.box.classList.remove('active'));
+      }
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      const z = hit && hit.closest ? hit.closest('.dropzone') : null;
+      if (over && over !== z) over.classList.remove('over');
+      over = z && z !== dz ? z : null;
+      if (over) over.classList.add('over');
+    };
+    const end = (ev) => {
+      if (ev.pointerId !== st.id) return;
+      box.removeEventListener('pointermove', move); box.removeEventListener('pointerup', end); box.removeEventListener('pointercancel', end);
+      try { box.releasePointerCapture(st.id); } catch {}
+      if (st.on) {
+        document.body.classList.remove('dragging'); t.el.classList.remove('dragsrc');
+        if (over && ev.type === 'pointerup') {
+          const target = tiles.find((o) => o.el.querySelector('.dropzone') === over);
+          if (target) swap(tiles.indexOf(t), tiles.indexOf(target));
+        }
+        document.querySelectorAll('.dropzone.over').forEach((d) => d.classList.remove('over'));
+        dragSrc = null;
+        if (ev.pointerType === 'mouse') t.dragged = false; // (touch clears it in its tap handler)
+      }
+    };
+    box.addEventListener('pointermove', move); box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+  });
+}
+
 function setupDnD(t) {
   const grip = t.el.querySelector('.grip'), dz = t.el.querySelector('.dropzone');
   grip.addEventListener('pointerdown', (e) => {
@@ -627,6 +717,7 @@ function setupDnD(t) {
 /* ---------------- UI wiring ---------------- */
 function addUrl(u) {
   if (tiles.length >= MAX) { toast(`Maximum ${MAX} players`); return false; }
+  if (focusId !== null) exitFocus(); // so the new player is visible
   // the first player gets sound; later ones start muted so streams don't talk over each other
   createTile(u, { muted: tiles.some((o) => !o.muted) });
   save();
@@ -654,7 +745,11 @@ $('#showUiBtn').onclick = () => setImmersive(false);
 document.addEventListener('keydown', (e) => {
   if (e.target === input) { if (e.key === 'Escape') input.blur(); return; }
   if (e.key === 'h' || e.key === 'H') setImmersive(!document.body.classList.contains('immersive'));
-  if (e.key === 'Escape') { setImmersive(false); openLive(false); openInspect(false); }
+  if (e.key === 'Escape') {
+    const panelOpen = !liveEl.hidden || !insEl.hidden, immersive = document.body.classList.contains('immersive');
+    if (focusId !== null && !panelOpen && !immersive) { exitFocus(); return; }
+    setImmersive(false); openLive(false); openInspect(false);
+  }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
 });
 const topbar = $('#topbar');
@@ -952,6 +1047,7 @@ insForm.onsubmit = async (e) => {
 /* ---------------- reset ---------------- */
 $('#resetBtn').onclick = () => {
   if (tiles.length && !confirm('Close all streams and start fresh?')) return;
+  if (focusId !== null) exitFocus();
   tiles.slice().forEach((t) => { destroyMedia(t); t.el.remove(); });
   tiles.length = 0;
   Object.keys(layoutPref).forEach((k) => delete layoutPref[k]);

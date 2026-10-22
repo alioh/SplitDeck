@@ -112,7 +112,9 @@ Your choice is remembered per player count.
 
 ### Swapping players
 
-Each player has a **⋮⋮** handle at the top left. Drag it and drop it on another player to swap their positions (on a touch screen, press and drag the handle). The players keep playing while they move. The **★ Main** button swaps a player into the first (usually largest) position.
+**Press anywhere on a player and move it onto another player** to swap their positions. This works with a mouse and with a finger. A plain click or tap does nothing special, because the drag only starts after the pointer has moved a few pixels. The other players light up with **Swap here** while you drag; let go over one to swap. The players keep playing while they move.
+
+Players shown through an embedded page (such as the Facebook fallback) swallow the mouse, so for those use the **⋮⋮** handle at the top left of the player instead; it works the same way and still works on every player. The **★ Main** button swaps a player into the first (usually largest) position.
 
 ### Resizing
 
@@ -133,7 +135,21 @@ Hover a player to show its controls (on a touch screen, tap it). They fade after
 | **⤢** | Switches between *fit* (whole picture visible) and *fill* (crops to fill the player). |
 | **⟳** | Reloads the player. |
 | **⛶** | Fullscreen for this player. Double-clicking the video does the same. |
+| **▣** | **Focus:** shows only this player, full size, with sound. See [Focusing one player](#focusing-one-player). |
 | **✕** | Closes the player. |
+
+### Focusing one player
+
+Click the **▣** button in a player's top-right controls (just left of **✕**) to focus it:
+
+- The player fills the whole stage, on its own.
+- Sound switches to it (at its volume, or 60% if it was at zero).
+- Every other player **keeps running in the background, muted**, so you are still live when you come back.
+- A red **◀ Back to grid** button appears at the top left.
+
+To return, use any of these: the **Back to grid** button, **Esc**, the **▣** button again (it is lit while focused), or the browser's or phone's **Back** button. The grid, the layout, your divider sizes and each player's earlier mute state come back exactly as they were.
+
+Adding a player or using **Reset** also returns to the grid. Closing the focused player returns to the grid too. Resize handles are hidden while a player is focused.
 
 ### Bottom bar of a player
 
@@ -166,7 +182,8 @@ SplitDeck adapts to touch screens and small windows. It works in a phone or tabl
 |---|---|
 | Top bar | On tablets the buttons show icons only. On phones the link box takes its own row and the buttons sit below it. |
 | Showing controls | There is no hover on a touch screen, so **tap a picture** to show its controls. They hide again after a few seconds, or when you tap another player. |
-| Swapping | Press the **⋮⋮** handle, drag onto another player and let go. |
+| Swapping | Press anywhere on a player, drag onto another player and let go (the **⋮⋮** handle works too). |
+| Focus | The **▣** button shows one player alone with sound. **Back to grid** (or the phone's Back button) returns. |
 | Resizing | The handles between players are always visible and larger. Drag them with a finger. |
 | Default layout | If you have not chosen a layout yet, portrait screens get stacked layouts: one picture per row on phones, two columns on tablets from 4 players. Rotating the device picks a suitable default again. A layout you chose yourself is kept. |
 | Small players | Very small players hide the least-used buttons (fit/fill, reload, volume slider, title) so the rest still fit. Open the player in fullscreen to see everything. |
@@ -273,7 +290,7 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | Key | Action |
 |---|---|
 | **H** | Hide or show the top bar. |
-| **Esc** | Show the top bar and close the Live panel. |
+| **Esc** | Go back to the grid from a focused player; otherwise show the top bar and close the open panel. |
 | **/** | Show the top bar and focus the link box. |
 | **Enter** (in the link box) | Add the link. |
 

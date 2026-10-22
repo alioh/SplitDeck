@@ -289,3 +289,17 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
 
 /* the mute-all button shows when everything is muted */
 #muteAllBtn.on { background: #3a1a20; border-color: #7a2a36; }
+
+/* focus mode: one player alone, full size */
+.tile.focused { z-index: 10; }
+.hud button[data-a=focus].on { background: var(--accent); border-color: var(--accent); }
+.focusback { position: fixed; left: 12px; top: calc(var(--top) + 50px); z-index: 26; background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 7px 14px; border-radius: 999px; box-shadow: 0 4px 16px #0008; opacity: .92; }
+.focusback:hover { background: #ff6674; opacity: 1; }
+.focusback[hidden] { display: none; }
+body.immersive .focusback { top: 52px; }
+@media (pointer: coarse) { .focusback { top: calc(var(--top) + 64px); min-height: 40px; } body.immersive .focusback { top: 66px; } }
+@media (max-width: 720px) { .focusback { left: 10px; } }
+
+/* press anywhere on a player to drag it onto another */
+@media (hover: hover) { .box:not(.idle) { cursor: grab; } }
+body.dragging, body.dragging * { cursor: grabbing !important; }
