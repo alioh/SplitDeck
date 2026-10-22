@@ -74,11 +74,14 @@ The first player you add has sound. Later players start muted so they do not tal
 
 ### Top bar
 
+**+ Add**, **Find** and **Live** sit together on the left; the layout, mute, reset and hide controls are on the right. On a phone the first row holds the link box, **+ Add**, **Find** and **Live**, and the second row holds the rest.
+
 | Control | What it does |
 |---|---|
 | Link box and **+ Add** | Adds players. |
-| Counter (`3 / 8`) | Players in use. |
+| **Find** | Opens the link finder ([section 6b](#6b-find-stream-links)). |
 | **Live** | Opens the Live browser ([section 7](#7-the-live-browser)). |
+| Counter (`3 / 8`) | Players in use. |
 | **Layout** | Choose an arrangement ([section 5](#5-layouts-and-resizing)). |
 | **Mute all** / **Unmute all** (speaker) | Mutes every player. When everything is muted the button turns red and says **Unmute all**, which turns the sound back on for every player. |
 | **Reset** | Closes everything and starts fresh ([section 9](#9-saved-data-and-reset)). |
