@@ -353,6 +353,7 @@ If the first stream format fails or does not start within 15 seconds, the page t
 
 - **yt-dlp** is run as a command to extract the stream URL for most sites. Results are not cached; each add resolves fresh.
 - **TikTok LIVE** is read from TikTok's web API first, because yt-dlp's live detection is sometimes wrong. yt-dlp is used if that fails.
+  TikTok serves some accounts as HLS and others only as FLV, depending on which of its networks carries the stream. SplitDeck plays both. (FLV is played with mpegts.js; its background worker needs a full web address, which SplitDeck supplies.)
 - **YouTube** exposes video and audio as separate HLS streams. The server builds one master playlist from them so hls.js can offer quality levels and audio tracks, and returns the caption files so the page can show them. If that fails it returns the embed instead.
 - **Kick** blocks requests from Node.js, so the server uses the system `curl` for Kick's public listing.
 - **X** is handled by yt-dlp. A post with several videos plays the first one. If a result has no video at all (for example an audio-only Space), the best audio stream is played.

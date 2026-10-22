@@ -400,9 +400,10 @@ function mountVideo(t, data, i = 0) {
     } else { v.src = src.url; start(); }
   } else if (src.type === 'flv') {
     if (!window.mpegts || !mpegts.isSupported()) return fail('FLV streams not supported in this browser');
-    const p = mpegts.createPlayer({ type: 'flv', isLive: true, url: src.url }, { enableWorker: true, liveBufferLatencyChasing: true });
+    // mpegts.js runs its network code in a Web Worker, which cannot resolve a relative link like /proxy?…, so give it a full address
+    const p = mpegts.createPlayer({ type: 'flv', isLive: true, url: new URL(src.url, location.href).href }, { enableWorker: true, liveBufferLatencyChasing: true });
     t.mpegts = p; p.attachMediaElement(v); p.load(); start();
-    p.on(mpegts.Events.ERROR, (_, d) => fail('Stream error or ended' + (d ? ' (' + d + ')' : '')));
+    p.on(mpegts.Events.ERROR, (type, detail, info) => fail('Stream error or ended' + (detail ? ' (' + detail + (info && info.msg ? ': ' + String(info.msg).slice(0, 80) : '') + ')' : '')));
   } else { v.src = src.url; start(); }
   v.onerror = () => { if (!t.hls && !t.mpegts) fail('Could not play this stream'); };
 }
