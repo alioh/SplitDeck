@@ -255,7 +255,7 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
   .addform { order: 1; flex: 1 1 0; min-width: 0; max-width: none; }
   .rowbreak { display: block; order: 2; flex: 1 0 100%; height: 0; } /* forces the buttons below onto a second row */
   .count { order: 3; margin-right: auto; font-size: 14px; }
-  #inspectBtn, #liveBtn { order: 1; } .pop-wrap { order: 4; } #muteAllBtn { order: 5; } #resetBtn { order: 6; } #immersiveBtn { order: 7; }
+  #inspectBtn, #liveBtn { order: 1; } .pop-wrap { order: 4; } #muteAllBtn { order: 5; } #signinBtn { order: 5; } #resetBtn { order: 6; } #immersiveBtn { order: 7; }
   .topbar button { min-height: 40px; min-width: 42px; font-size: 16px; }
   .addform input { height: 42px; }
   .addform button { min-height: 42px; }
@@ -303,3 +303,24 @@ body.immersive .focusback { top: 52px; }
 /* press anywhere on a player to drag it onto another */
 @media (hover: hover) { .box:not(.idle) { cursor: grab; } }
 body.dragging, body.dragging * { cursor: grabbing !important; }
+
+/* sign-ins panel */
+#signinBtn[hidden] { display: none; }
+.sgsite { padding: 12px 10px; border-bottom: 1px solid #20202a; }
+.sgtop { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sgstat { font-size: 12px; color: var(--dim); }
+.sgok { color: #36d17a; } .sgno { color: var(--dim); }
+.sgwhy { color: var(--dim); font-size: 12px; margin: 4px 0 8px; }
+.sgsite textarea { width: 100%; height: 64px; resize: vertical; background: #0e0e13; color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; font: 12px/1.4 ui-monospace, Consolas, monospace; outline: none; }
+.sgsite textarea:focus { border-color: var(--accent); }
+.sgact { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.sgact .danger { background: #4a1820; border-color: #7a2a36; }
+.sgmsg { font-size: 12px; } .sgmsg.good { color: #7ddc9a; } .sgmsg.bad { color: #ff9aa4; }
+.sghow { padding: 10px 12px; color: var(--dim); line-height: 1.5; }
+.sghow summary { cursor: pointer; color: var(--text); }
+.sghow ol { padding-left: 18px; margin: 8px 0 0; }
+.cinfo { color: var(--dim); line-height: 1.5; padding: 10px 12px 6px; }
+.cnote { padding: 6px 12px 16px; line-height: 1.6; }
+.clink { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; text-decoration: underline; }
+.status button + button { margin-top: 6px; }
+@media (pointer: coarse) { .sgsite textarea { font-size: 16px; } }

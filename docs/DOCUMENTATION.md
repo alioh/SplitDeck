@@ -12,6 +12,7 @@ SplitDeck is a small local web app. A Node.js server runs on your computer and s
 6. [Player controls](#6-player-controls)
    - [6a. Phones and tablets](#6a-phones-and-tablets)
    - [6b. Find stream links](#6b-find-stream-links)
+   - [6c. Sign-ins for restricted streams](#6c-sign-ins-for-restricted-streams)
 7. [The Live browser](#7-the-live-browser)
 8. [YouTube: clean player and YouTube's player](#8-youtube-clean-player-and-youtubes-player)
 9. [Saved data and reset](#9-saved-data-and-reset)
@@ -232,6 +233,47 @@ The scanner makes requests from your computer to any address you give it, so it 
 
 ---
 
+## 6c. Sign-ins for restricted streams
+
+Some streams only play for a signed-in account:
+
+| Site | Needs a sign-in for |
+|---|---|
+| TikTok | Age-restricted (18+) LIVEs, and LIVEs limited to followers or subscribers |
+| YouTube | Age-restricted and members-only videos and streams |
+| Twitch | Subscriber-only streams and videos |
+
+When that happens the player says so, for example *"This TikTok LIVE is age-restricted (18+)…"*, with an **🔑 Open Sign-ins** button.
+
+### Adding a sign-in
+
+1. In your normal browser, sign in to the site (TikTok, YouTube or Twitch).
+2. Install a cookie-export extension that saves in the **cookies.txt (Netscape)** or **JSON** format, for example "Get cookies.txt LOCALLY".
+3. Open the site, export its cookies, open the exported file and copy everything.
+4. In SplitDeck, click **🔑 Sign-ins** in the top bar, paste into that site's box and click **Save**.
+
+Players from that site that had failed are retried straight away. SplitDeck accepts a cookies.txt export, a JSON export (a list of `{name, value, domain}`), or a `name=value; name=value` line, and keeps only that site's cookies (cookies for other sites and expired ones are dropped).
+
+Sign-ins expire. If restricted streams stop working, paste a fresh one. **Remove** deletes a site's sign-in; **Remove all sign-ins** deletes them all.
+
+### Why it is not automatic
+
+A web page cannot read another site's cookies; browsers block this on purpose. Chrome, Edge and Brave on Windows also encrypt their cookies so that other programs cannot read them. So the sign-in has to be exported and pasted once.
+
+### Where your sign-in goes
+
+- It is saved **only in this browser** (local storage), on the computer you use SplitDeck from.
+- When you open a stream, only **that site's** sign-in is sent, inside the request (never in the address), to **your own SplitDeck server**.
+- The server uses it for that one lookup and then forgets it. It is never written to the log. For yt-dlp it is put in a private temporary file that is deleted as soon as the lookup ends.
+- The server accepts sign-ins only from the same computer or your home network (private network addresses). Requests from elsewhere are treated as if no sign-in was sent.
+- To turn the feature off completely, start the server with `DISABLE_SIGNIN=1`. The **Sign-ins** button then disappears.
+
+**Keep it private.** A sign-in works like your password for that site. Only paste it into **your own** copy of SplitDeck, never into a copy someone else runs. Clearing your browser's site data for SplitDeck also removes it.
+
+The older method still works: a `cookies.txt` file in the SplitDeck folder (see [Facebook and logins](#facebook-and-logins)). A sign-in pasted in the app is used first.
+
+---
+
 ## 7. The Live browser
 
 Click **Live** in the top bar to open a panel listing what is live right now. Click any row to add it as a player. A row you added is outlined.
@@ -317,9 +359,9 @@ Facebook, some X content and **age-restricted (18+) TikTok LIVEs** need you to b
 1. It tries yt-dlp first. If that works you get the normal clean player with the full toolbar.
 2. If it fails, it shows Facebook's **embedded player** inside the tile. That works for **public** videos and live streams. It is Facebook's own player, so SplitDeck's volume, mute, speed and quality controls do not apply to it; use the controls inside it. A private or removed video shows Facebook's own "Video unavailable" message.
 
-**TikTok 18+ LIVEs:** TikTok marks some LIVEs as age-restricted. It then shows them only to signed-in adult accounts and leaves the video out for everyone else, so without a login SplitDeck shows *"This TikTok LIVE is age-restricted (18+)"*. With a `cookies.txt` from a browser where you are signed in to an adult TikTok account, SplitDeck sends your TikTok cookies (and only those) to TikTok and can play them.
+**TikTok 18+ LIVEs:** TikTok marks some LIVEs as age-restricted. It then shows them only to signed-in adult accounts and leaves the video out for everyone else, so without a login SplitDeck shows *"This TikTok LIVE is age-restricted (18+)"*. The easiest fix is to add your TikTok sign-in under **🔑 Sign-ins** ([section 6c](#6c-sign-ins-for-restricted-streams)).
 
-To let SplitDeck and yt-dlp use your login (for example for content that needs an account), put a cookies file in the project folder named `cookies.txt` (Netscape format, exported from your browser with a cookie-export extension), or point the `COOKIES` variable at it. Keep this file private: it is excluded from Git and never uploaded anywhere, but anyone with the file can use your logins.
+Alternatively, for all sites at once, put a cookies file in the project folder named `cookies.txt` (Netscape format, exported from your browser with a cookie-export extension), or point the `COOKIES` variable at it. Keep this file private: it is excluded from Git and never uploaded anywhere, but anyone with the file can use your logins.
 
 ## 12. Configuration
 
@@ -329,6 +371,7 @@ Environment variables, set before `npm start`:
 |---|---|---|
 | `PORT` | `8787` | Port the server listens on. |
 | `ALLOW_PRIVATE_URLS` | off | Set to `1` to let the link finder scan addresses on your own network. Leave it off unless you need it. |
+| `DISABLE_SIGNIN` | off | Set to `1` to turn off the **Sign-ins** panel; sign-ins sent by the page are then ignored. |
 | `COOKIES` | `cookies.txt` if it exists | Path to a Netscape-format cookies file passed to yt-dlp, for sites that need a login. Optional. |
 | `YTDLP` | auto | Path to a yt-dlp executable. By default SplitDeck uses `bin/yt-dlp` (from `npm run setup`), and otherwise `yt-dlp` on your `PATH`. |
 
@@ -350,6 +393,8 @@ The page talks to the local server with these endpoints. They are internal and m
 
 | Endpoint | Purpose |
 |---|---|
+| `POST /api/resolve` | Same as below, with a JSON body `{url, embed, cookies}`. `cookies` is that site's sign-in from the Sign-ins panel; it is only accepted from this computer or the home network. |
+| `GET /api/config` | Tells the page whether sign-ins are allowed (`{signin: true/false}`). |
 | `GET /api/resolve?url=…[&embed=1]` | Turns a link into something the page can play. Returns `type` (`hls`, `file`, `flv`, `youtube` or `embed`), a playable `url`, a list of fallback `sources`, `title`, `live`, and for YouTube `captions`. `embed=1` forces YouTube's embedded player. |
 | `GET /api/live?site=…` | Lists live streams for `twitch`, `kick` or `youtube`, or checks usernames for `tiktok`. Parameters: `lang`, `cat`, `q` (search), `after` (paging token), `users` (TikTok). Returns `items` and `next`. |
 | `GET /api/categories?site=…[&q=…]` | Category list for `twitch`, `kick` or `youtube`, optionally filtered by `q`. |
@@ -428,8 +473,10 @@ SplitDeck/
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
 | The link finder shows no results | The page probably loads its video with JavaScript, or protects it. The finder only reads source text. Try **Try the page link itself**. |
 | The link finder says an address is blocked | It refuses private-network addresses. See `ALLOW_PRIVATE_URLS` in [Configuration](#12-configuration). |
-| A TikTok LIVE says it is age-restricted (18+) | TikTok only shows it to signed-in adults. Add a `cookies.txt` from a browser signed in to TikTok (see [Facebook and logins](#facebook-and-logins)). |
-| A TikTok LIVE says it is live but did not share its video | The LIVE is restricted in another way (for example followers or subscribers only, or a region). A `cookies.txt` from an account that can watch it may help. |
+| A TikTok LIVE says it is age-restricted (18+) | TikTok only shows it to signed-in adults. Add your TikTok sign-in under **🔑 Sign-ins** ([section 6c](#6c-sign-ins-for-restricted-streams)). |
+| It says TikTok did not accept your sign-in | The sign-in has expired, or the account is not 18+. Export and paste a fresh one. |
+| The Sign-ins button is missing | The server was started with `DISABLE_SIGNIN=1`, or you are opening SplitDeck from outside your computer or home network. |
+| A TikTok LIVE says it is live but did not share its video | The LIVE is restricted in another way (for example followers or subscribers only, or a region). A sign-in from an account that can watch it may help. |
 | Everything is stuck or wrong | Click **Reset**, then press **Ctrl+F5**. |
 
 ## 17. Limitations
@@ -449,6 +496,7 @@ SplitDeck/
 
 - The server runs only on your computer and listens on `127.0.0.1`.
 - The link finder refuses private-network addresses by default, so it cannot be used to probe your home network.
+- Sign-ins pasted in the app stay in your browser and are only sent to your own SplitDeck server, only from this computer or your home network, and never logged (see [section 6c](#6c-sign-ins-for-restricted-streams)).
 - Your optional `cookies.txt` stays on your computer and is excluded from Git. Treat it like a password.
 - Everything you save (players, layouts, watchlist) stays in your browser. Nothing is sent to a SplitDeck server.
 - Your computer requests media and listings directly from the sites you use, as a normal browser would.

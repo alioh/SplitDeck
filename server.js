@@ -5,6 +5,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { Readable } = require('stream');
+const os = require('os');
+const { AsyncLocalStorage } = require('async_hooks');
 
 const PORT = process.env.PORT || 8787;
 const PUBLIC = path.join(__dirname, 'public');
@@ -13,6 +15,49 @@ const BUNDLED = path.join(__dirname, 'bin', process.platform === 'win32' ? 'yt-d
 const YTDLP = process.env.YTDLP || (fs.existsSync(BUNDLED) ? BUNDLED : 'yt-dlp');
 // optional: a Netscape-format cookies file, from $COOKIES or ./cookies.txt (git-ignored). yt-dlp only sends each cookie to its own site.
 const COOKIES_FILE = process.env.COOKIES || (fs.existsSync(path.join(__dirname, 'cookies.txt')) ? path.join(__dirname, 'cookies.txt') : '');
+
+// ---------- sign-ins pasted in the app (Sign-ins panel) ----------
+// The browser keeps them; when a stream is opened it sends only that site's cookies, in the request body, to this server.
+// They are used for that one lookup (never logged or saved), and are only accepted from this computer or the home network.
+// Set DISABLE_SIGNIN=1 to turn the feature off.
+const SIGNIN_ENABLED = process.env.DISABLE_SIGNIN !== '1';
+const SIGNIN_SITES = {
+  tiktok: { domain: '.tiktok.com', host: /(^|\.)tiktok\.com$/i },
+  youtube: { domain: '.youtube.com', host: /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i },
+  twitch: { domain: '.twitch.tv', host: /(^|\.)twitch\.tv$/i },
+};
+const signinStore = new AsyncLocalStorage(); // { site, header, cookieFile } while a request with a sign-in is being handled
+function siteOfUrl(u) {
+  let host = ''; try { host = new URL(/^https?:\/\//i.test(u) ? u : 'https://' + u).hostname; } catch { return ''; }
+  for (const [k, v] of Object.entries(SIGNIN_SITES)) if (v.host.test(host)) return k;
+  return '';
+}
+// accept only a clean "name=value; name=value" list (the app converts every export format to this)
+function cleanCookieHeader(text) {
+  const out = [];
+  for (const part of String(text || '').split(';')) {
+    const i = part.indexOf('='); if (i < 1) continue;
+    const name = part.slice(0, i).trim(), value = part.slice(i + 1).trim();
+    if (!/^[!#$%&'*+\-.^\w`|~]+$/.test(name) || /[\x00-\x1f\x7f;,\s"\\]/.test(value) && !/^"[^"]*"$/.test(value)) continue;
+    out.push(name + '=' + value);
+    if (out.length >= 200) break;
+  }
+  return out.join('; ');
+}
+// run fn() with a sign-in for the site of url (if any); yt-dlp gets a private temporary cookies file that is deleted afterwards
+async function withSignin(url, cookieText, fn) {
+  const site = siteOfUrl(url), header = site ? cleanCookieHeader(cookieText) : '';
+  if (!header) return fn();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'splitdeck-signin-'));
+  const cookieFile = path.join(dir, 'cookies.txt');
+  const lines = ['# Netscape HTTP Cookie File'].concat(header.split('; ').map((kv) => {
+    const i = kv.indexOf('='); return [SIGNIN_SITES[site].domain, 'TRUE', '/', 'TRUE', '0', kv.slice(0, i), kv.slice(i + 1)].join('\t');
+  }));
+  fs.writeFileSync(cookieFile, lines.join('\n') + '\n', { mode: 0o600 });
+  try { return await signinStore.run({ site, header, cookieFile }, fn); }
+  finally { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} }
+}
+const fromLocalNetwork = (req) => { const a = String(req.socket.remoteAddress || ''); return a === '::1' || isPrivateIp(a.replace(/^::ffff:/, '')); };
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 
 const MIME = {
@@ -25,7 +70,8 @@ const sessions = new Map();
 
 function ytdlp(args, timeout = 45000) {
   return new Promise((resolve, reject) => {
-    execFile(YTDLP, COOKIES_FILE ? ['--cookies', COOKIES_FILE, ...args] : args, { timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+    const st = signinStore.getStore(), cookieFile = (st && st.cookieFile) || COOKIES_FILE;
+    execFile(YTDLP, cookieFile ? ['--cookies', cookieFile, ...args] : args, { timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
       if (err) {
         const msg = (stderr || err.message || '').split('\n').filter((l) => l.includes('ERROR')).pop() || stderr || err.message;
         return reject(new Error(msg.replace(/^ERROR:\s*/, '').trim()));
@@ -97,10 +143,13 @@ function tiktokCookieHeader() {
 }
 const tiktokHeaders = () => {
   const h = { 'User-Agent': UA, Referer: 'https://www.tiktok.com/', Accept: 'application/json' };
-  const c = tiktokCookieHeader(); if (c) h.Cookie = c;
+  const st = signinStore.getStore();
+  const c = st && st.site === 'tiktok' ? st.header : tiktokCookieHeader(); if (c) h.Cookie = c;
   return h;
 };
-const AGE_MSG = 'This TikTok LIVE is age-restricted (18+). TikTok only shows it to signed-in adult accounts. To watch it in SplitDeck, add a cookies.txt from a browser where you are signed in to TikTok (see the docs: Facebook and logins).';
+const hasTiktokSignin = () => !!tiktokHeaders().Cookie;
+const AGE_MSG = 'This TikTok LIVE is age-restricted (18+). TikTok only shows it to signed-in adult accounts. To watch it, add your TikTok sign-in under 🔑 Sign-ins.';
+const AGE_MSG_SIGNED = 'This TikTok LIVE is age-restricted (18+) and TikTok did not accept your sign-in for it. The sign-in may have expired or the account may not be 18+. Paste a fresh one under 🔑 Sign-ins.';
 
 async function resolveTiktokLive(user) {
   const api = `https://www.tiktok.com/api-live/user/room/?aid=1988&uniqueId=${encodeURIComponent(user)}&sourceType=54`;
@@ -126,7 +175,7 @@ async function resolveTiktokLive(user) {
     const roomId = j.data.user.roomId;
     let info = null;
     try { info = await (await fetch('https://webcast.tiktok.com/webcast/room/info/?aid=1988&room_id=' + encodeURIComponent(roomId), { headers: tiktokHeaders() })).json(); } catch {}
-    if (info && info.status_code === 4003110) throw Object.assign(new Error(AGE_MSG), { final: !COOKIES_FILE, ageRestricted: true });
+    if (info && info.status_code === 4003110) throw Object.assign(new Error(hasTiktokSignin() ? AGE_MSG_SIGNED : AGE_MSG), { final: true, ageRestricted: true });
     const su = info && info.data && info.data.stream_url;
     if (su) {
       streams = {};
@@ -138,7 +187,7 @@ async function resolveTiktokLive(user) {
         streams.hd = { hls: su.hls_pull_url || '', flv: best || '' };
       }
     }
-    if (!streams) throw Object.assign(new Error('TikTok says this channel is live but did not share its video. It may be restricted (for example to followers, subscribers or some regions).'), { final: !COOKIES_FILE });
+    if (!streams) throw Object.assign(new Error('TikTok says this channel is live but did not share its video. It may be restricted (for example to followers, subscribers or some regions). A sign-in under 🔑 Sign-ins from an account that can watch it may help.'), { final: !hasTiktokSignin() });
   }
   const sources = [];
   const sid = crypto.randomBytes(8).toString('hex');
@@ -674,10 +723,25 @@ async function probeLink(u) {
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
+    if (url.pathname === '/api/config') {
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify({ signin: SIGNIN_ENABLED && fromLocalNetwork(req) }));
+    }
     if (url.pathname === '/api/resolve') {
       res.setHeader('Content-Type', 'application/json');
       try {
-        const data = await resolve(url.searchParams.get('url') || '', url.searchParams.get('embed') === '1');
+        let target = url.searchParams.get('url') || '', embed = url.searchParams.get('embed') === '1', cookies = '';
+        if (req.method === 'POST') {
+          const body = await new Promise((ok, bad) => {
+            let size = 0; const parts = [];
+            req.on('data', (c) => { size += c.length; if (size > 65536) { bad(new Error('Request too large')); req.destroy(); } else parts.push(c); });
+            req.on('end', () => { try { ok(JSON.parse(Buffer.concat(parts).toString('utf8') || '{}')); } catch { bad(new Error('Invalid request')); } });
+            req.on('error', bad);
+          });
+          target = String(body.url || ''); embed = !!body.embed;
+          if (body.cookies && SIGNIN_ENABLED && fromLocalNetwork(req)) cookies = String(body.cookies).slice(0, 16384);
+        }
+        const data = await withSignin(target, cookies, () => resolve(target, embed));
         res.end(JSON.stringify(data));
       } catch (e) {
         res.statusCode = 422;

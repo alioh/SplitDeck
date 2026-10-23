@@ -311,7 +311,10 @@ async function load(t, direct = false) {
   setStatus(t, 'loading', 'Resolving stream…');
   let data;
   try {
-    const r = await fetch('/api/resolve?url=' + encodeURIComponent(t.url) + (t.pref === 'embed' ? '&embed=1' : ''));
+    const cookies = signinFor(t.url);
+    const r = cookies
+      ? await fetch('/api/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: t.url, embed: t.pref === 'embed', cookies }) })
+      : await fetch('/api/resolve?url=' + encodeURIComponent(t.url) + (t.pref === 'embed' ? '&embed=1' : ''));
     data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Could not resolve');
   } catch (e) { return setStatus(t, 'err', e.message); }
@@ -358,6 +361,10 @@ function setStatus(t, kind, msg) {
   s.innerHTML = kind === 'err'
     ? `<div>${esc(msg)}</div><button>Retry</button>` : `<div class="spin"></div><div class="msg">${esc(msg)}</div>`;
   const b = s.querySelector('button'); if (b) b.onclick = () => load(t);
+  if (kind === 'err' && /Sign-ins/.test(msg) && signinAllowed) {
+    const k = document.createElement('button'); k.textContent = '🔑 Open Sign-ins'; k.onclick = () => openSignin(true, siteKeyOf(t.url));
+    s.appendChild(k);
+  }
 }
 
 function mountVideo(t, data, i = 0) {
@@ -746,9 +753,9 @@ document.addEventListener('keydown', (e) => {
   if (e.target === input) { if (e.key === 'Escape') input.blur(); return; }
   if (e.key === 'h' || e.key === 'H') setImmersive(!document.body.classList.contains('immersive'));
   if (e.key === 'Escape') {
-    const panelOpen = !liveEl.hidden || !insEl.hidden, immersive = document.body.classList.contains('immersive');
+    const panelOpen = !liveEl.hidden || !insEl.hidden || !signinEl.hidden, immersive = document.body.classList.contains('immersive');
     if (focusId !== null && !panelOpen && !immersive) { exitFocus(); return; }
-    setImmersive(false); openLive(false); openInspect(false);
+    setImmersive(false); openLive(false); openInspect(false); openSignin(false);
   }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
 });
@@ -954,7 +961,7 @@ async function loadLive() {
     appendItems(data.items); afterPage(data, my);
   } catch (e) { msg('err', 'Could not load: ' + esc(e.message)); }
 }
-function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; loadLive(); } }
+function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; signinEl.hidden = true; loadLive(); } }
 $('#liveBtn').onclick = (e) => { e.stopPropagation(); openLive(liveEl.hidden); };
 $('#liveClose').onclick = () => openLive(false);
 $('#liveRefresh').onclick = () => loadLive();
@@ -969,7 +976,7 @@ $('#liveTabs').onclick = (e) => {
 const insEl = $('#inspect'), insForm = $('#inspForm'), insList = $('#inspList'), insInput = insForm.querySelector('input');
 function openInspect(on = true) {
   insEl.hidden = !on;
-  if (on) { liveEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
+  if (on) { liveEl.hidden = true; signinEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
 }
 $('#inspectBtn').onclick = (e) => { e.stopPropagation(); openInspect(insEl.hidden); };
 $('#inspClose').onclick = () => openInspect(false);
@@ -1043,6 +1050,106 @@ insForm.onsubmit = async (e) => {
     renderInspect(d);
   } catch (err) { insList.innerHTML = '<div class="lmsg err">' + esc(err.message) + '</div>'; }
 };
+
+/* ---------------- sign-ins (stored only in this browser) ---------------- */
+const SIGNIN_KEY = 'splitdeck.signin';
+const SIGNIN_SITES = [
+  { key: 'tiktok', name: 'TikTok', domain: 'tiktok.com', home: 'https://www.tiktok.com/', host: /(^|\.)tiktok\.com$/i, why: 'Age-restricted (18+) LIVEs, and LIVEs limited to followers or subscribers.' },
+  { key: 'youtube', name: 'YouTube', domain: 'youtube.com', home: 'https://www.youtube.com/', host: /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i, why: 'Age-restricted and members-only videos and streams.' },
+  { key: 'twitch', name: 'Twitch', domain: 'twitch.tv', home: 'https://www.twitch.tv/', host: /(^|\.)twitch\.tv$/i, why: 'Subscriber-only streams and VODs.' },
+];
+const signinEl = $('#signinPanel'), signinBody = $('#signinBody'), signinBtn = $('#signinBtn');
+let signinAllowed = false;
+const loadSignins = () => { try { return JSON.parse(localStorage.getItem(SIGNIN_KEY) || '{}') || {}; } catch { return {}; } };
+const storeSignins = (o) => { try { localStorage.setItem(SIGNIN_KEY, JSON.stringify(o)); return true; } catch { return false; } };
+function siteKeyOf(u) {
+  let host = ''; try { host = new URL(/^https?:\/\//i.test(u) ? u : 'https://' + u).hostname; } catch { return ''; }
+  const s = SIGNIN_SITES.find((x) => x.host.test(host)); return s ? s.key : '';
+}
+function signinFor(u) { if (!signinAllowed) return ''; const k = siteKeyOf(u); const v = k && loadSignins()[k]; return v && v.header ? v.header : ''; }
+
+// Turn any common export into "name=value; name=value", keeping only this site's cookies.
+// Accepts: a cookies.txt (Netscape) export, a JSON export (array of {name, value, domain}), or a "name=value; ..." line.
+function parseCookieText(text, site) {
+  const t = String(text || '').trim(), pairs = new Map();
+  const forSite = (d) => { d = String(d || '').replace(/^#HttpOnly_/, '').replace(/^\./, '').toLowerCase(); return d === site.domain || d.endsWith('.' + site.domain); };
+  const now = Date.now() / 1000;
+  if (!t) return { header: '', count: 0, skipped: 0 };
+  let skipped = 0;
+  if (t.startsWith('[') || t.startsWith('{')) {
+    let arr; try { arr = JSON.parse(t); } catch { throw new Error('That looks like JSON but could not be read.'); }
+    if (!Array.isArray(arr)) arr = arr.cookies || [arr];
+    for (const c of arr) {
+      if (!c || !c.name) continue;
+      if (c.domain && !forSite(c.domain)) { skipped++; continue; }
+      const exp = c.expirationDate || c.expires; if (exp && exp > 0 && exp < now) { skipped++; continue; }
+      pairs.set(c.name, String(c.value == null ? '' : c.value));
+    }
+  } else if (/\t/.test(t)) {
+    for (const line of t.split(/\r?\n/)) {
+      if (!line || (line.startsWith('#') && !line.startsWith('#HttpOnly_'))) continue;
+      const f = line.split('\t'); if (f.length < 7) continue;
+      if (!forSite(f[0])) { skipped++; continue; }
+      const exp = +f[4]; if (exp && exp < now) { skipped++; continue; }
+      pairs.set(f[5], f[6]);
+    }
+  } else {
+    for (const part of t.replace(/^cookie:\s*/i, '').split(/;\s*/)) { const i = part.indexOf('='); if (i > 0) pairs.set(part.slice(0, i).trim(), part.slice(i + 1).trim()); }
+  }
+  const header = [...pairs].filter(([n]) => /^[!#$%&'*+\-.^\w`|~]+$/.test(n)).map(([n, v]) => n + '=' + v).join('; ');
+  return { header, count: header ? header.split('; ').length : 0, skipped };
+}
+
+function openSignin(on = true, focusKey) {
+  signinEl.hidden = !on;
+  if (on) {
+    liveEl.hidden = true; insEl.hidden = true; renderSignin();
+    if (focusKey) { const ta = signinBody.querySelector('[data-k="' + focusKey + '"] textarea'); if (ta) setTimeout(() => ta.focus(), 50); }
+  }
+}
+signinBtn.onclick = (e) => { e.stopPropagation(); openSignin(signinEl.hidden); };
+$('#signinClose').onclick = () => openSignin(false);
+
+function renderSignin() {
+  const saved = loadSignins();
+  signinBody.innerHTML = '<div class="cinfo">Some streams only play for a signed-in account, for example age-restricted (18+) TikTok LIVEs. Paste your sign-in for that site here. It is <b>saved only in this browser</b> and sent only to your own SplitDeck server, and only when you open a stream from that site.</div>' +
+    SIGNIN_SITES.map((s) => {
+      const v = saved[s.key];
+      const status = v && v.header ? '<span class="sgok">● Saved</span> · ' + v.count + ' cookie' + (v.count === 1 ? '' : 's') + ' · ' + esc(new Date(v.savedAt).toLocaleDateString()) : '<span class="sgno">○ Not set</span>';
+      return '<div class="sgsite" data-k="' + s.key + '"><div class="sgtop"><b>' + s.name + '</b><span class="sgstat">' + status + '</span></div>' +
+        '<div class="sgwhy">' + esc(s.why) + '</div>' +
+        '<textarea spellcheck="false" autocomplete="off" placeholder="Paste a cookies.txt export, a JSON cookie export, or a name=value; … line"></textarea>' +
+        '<div class="sgact"><button data-do="save">Save</button>' + (v && v.header ? '<button data-do="remove" class="danger">Remove</button>' : '') + '<span class="sgmsg"></span></div></div>';
+    }).join('') +
+    '<details class="sghow"><summary>How do I get my sign-in?</summary><ol>' +
+      '<li>In your browser, sign in to the site (TikTok, YouTube or Twitch).</li>' +
+      '<li>Install a cookie-export extension that saves in the <b>cookies.txt (Netscape)</b> or <b>JSON</b> format, for example “Get cookies.txt LOCALLY”.</li>' +
+      '<li>Open the site, export its cookies, open the file, copy everything and paste it in the box above. Only that site’s cookies are kept.</li>' +
+      '<li>Sign-ins expire. If a stream stops working, paste a fresh one.</li></ol></details>' +
+    '<div class="hint cnote"><b>Keep it private:</b> a sign-in works like your password for that site. Only use this on your own SplitDeck, never on a copy run by someone else. <button class="clink" id="sgClearAll">Remove all sign-ins</button></div>';
+  signinBody.querySelectorAll('.sgsite').forEach((box) => {
+    const site = SIGNIN_SITES.find((x) => x.key === box.dataset.k), msg = box.querySelector('.sgmsg'), ta = box.querySelector('textarea');
+    box.querySelector('[data-do=save]').onclick = () => {
+      let p; try { p = parseCookieText(ta.value, site); } catch (e) { msg.textContent = e.message; msg.className = 'sgmsg bad'; return; }
+      if (!p.count) { msg.textContent = 'No ' + site.name + ' cookies found in that text.'; msg.className = 'sgmsg bad'; return; }
+      const all = loadSignins(); all[site.key] = { header: p.header, count: p.count, savedAt: Date.now() };
+      if (!storeSignins(all)) { msg.textContent = 'This browser would not save it (private window?).'; msg.className = 'sgmsg bad'; return; }
+      ta.value = '';
+      renderSignin();
+      const m2 = signinBody.querySelector('[data-k="' + site.key + '"] .sgmsg');
+      if (m2) { m2.textContent = 'Saved' + (p.skipped ? ' (ignored ' + p.skipped + ' cookie' + (p.skipped === 1 ? '' : 's') + ' from other sites or expired)' : '') + '. Retry the stream.'; m2.className = 'sgmsg good'; }
+      retrySiteTiles(site.key);
+    };
+    const rm = box.querySelector('[data-do=remove]');
+    if (rm) rm.onclick = () => { const all = loadSignins(); delete all[site.key]; storeSignins(all); renderSignin(); };
+  });
+  $('#sgClearAll').onclick = () => { if (!confirm('Remove all saved sign-ins from this browser?')) return; try { localStorage.removeItem(SIGNIN_KEY); } catch {} renderSignin(); };
+}
+// after saving a sign-in, retry the players from that site that failed
+function retrySiteTiles(key) { tiles.forEach((t) => { if (siteKeyOf(t.url) === key && !t.status.hidden && t.status.classList.contains('err')) load(t); }); }
+
+// the server says whether sign-ins are allowed here (only on this computer or the home network)
+fetch('/api/config').then((r) => r.json()).then((c) => { signinAllowed = !!c.signin; signinBtn.hidden = !signinAllowed; }).catch(() => {});
 
 /* ---------------- reset ---------------- */
 $('#resetBtn').onclick = () => {

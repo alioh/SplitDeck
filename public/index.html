@@ -27,6 +27,7 @@
     <div class="popover" id="layoutPop" hidden></div>
   </div>
   <button id="muteAllBtn" title="Mute every player"><span class="ic">🔊</span><span class="lbl">Mute all</span></button>
+  <button id="signinBtn" title="Sign-ins for streams that need an account" hidden><span class="ic">🔑</span><span class="lbl">Sign-ins</span></button>
   <button id="resetBtn" title="Close all streams and start fresh"><span class="ic">↺</span><span class="lbl">Reset</span></button>
   <button id="immersiveBtn" title="Hide this bar (H)"><span class="ic">▭</span><span class="lbl">Hide UI</span></button>
 </header>
@@ -38,6 +39,10 @@
   </div>
   <div class="lctl" id="liveCtl"></div>
   <div class="llist" id="liveList"></div>
+</aside>
+<aside id="signinPanel" class="livepanel" hidden>
+  <div class="lhead"><b>Sign-ins</b><span class="spacer"></span><button id="signinClose" title="Close">✕</button></div>
+  <div class="llist" id="signinBody"></div>
 </aside>
 <aside id="inspect" class="livepanel" hidden>
   <div class="lhead"><b>Find stream links</b><span class="spacer"></span><button id="inspClose" title="Close">✕</button></div>
