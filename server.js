@@ -78,12 +78,36 @@ function tiktokLiveUser(u) {
   const m = u.match(/tiktok\.com\/@([\w.\-]+)\/live/i);
   return m ? m[1] : null;
 }
+// Cookies for TikTok from the optional cookies.txt (Netscape format), so age-restricted LIVEs work for a signed-in
+// adult account. Read fresh each time so a new file is picked up without a restart.
+function tiktokCookieHeader() {
+  if (!COOKIES_FILE) return '';
+  let text; try { text = fs.readFileSync(COOKIES_FILE, 'utf8'); } catch { return ''; }
+  const now = Date.now() / 1000, pairs = [];
+  for (let line of text.split(/\r?\n/)) {
+    if (line.startsWith('#HttpOnly_')) line = line.slice(10);
+    else if (!line || line.startsWith('#')) continue;
+    const f = line.split('\t');
+    if (f.length < 7 || !/(^|\.)tiktok\.com$/i.test(f[0].replace(/^\./, ''))) continue;
+    const exp = +f[4];
+    if (exp && exp < now) continue;
+    pairs.push(f[5] + '=' + f[6]);
+  }
+  return pairs.join('; ');
+}
+const tiktokHeaders = () => {
+  const h = { 'User-Agent': UA, Referer: 'https://www.tiktok.com/', Accept: 'application/json' };
+  const c = tiktokCookieHeader(); if (c) h.Cookie = c;
+  return h;
+};
+const AGE_MSG = 'This TikTok LIVE is age-restricted (18+). TikTok only shows it to signed-in adult accounts. To watch it in SplitDeck, add a cookies.txt from a browser where you are signed in to TikTok (see the docs: Facebook and logins).';
+
 async function resolveTiktokLive(user) {
   const api = `https://www.tiktok.com/api-live/user/room/?aid=1988&uniqueId=${encodeURIComponent(user)}&sourceType=54`;
   let j;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const r = await fetch(api, { headers: { 'User-Agent': UA, Referer: 'https://www.tiktok.com/', Accept: 'application/json' } });
+      const r = await fetch(api, { headers: tiktokHeaders() });
       j = await r.json();
       if (j && j.data && j.data.user) break;
     } catch {}
@@ -91,15 +115,38 @@ async function resolveTiktokLive(user) {
   }
   const room = j && j.data && j.data.liveRoom;
   if (!j || !j.data || !j.data.user) throw new Error('TikTok did not answer (try again in a moment)');
-  if (!room || room.status !== 2 || !room.streamData) throw new Error('TikTok says this channel is not live right now');
-  const sd = JSON.parse(room.streamData.pull_data.stream_data).data;
+  if (!room || room.status !== 2) throw new Error('TikTok says this channel is not live right now');
+
+  let streams = null; // { quality: { hls, flv } }
+  if (room.streamData && room.streamData.pull_data) {
+    const sd = JSON.parse(room.streamData.pull_data.stream_data).data;
+    streams = {}; for (const q of Object.keys(sd)) if (sd[q].main) streams[q] = { hls: sd[q].main.hls, flv: sd[q].main.flv };
+  } else {
+    // Live, but no stream in the public answer: ask the room service why (and, with cookies, it may hand over the stream).
+    const roomId = j.data.user.roomId;
+    let info = null;
+    try { info = await (await fetch('https://webcast.tiktok.com/webcast/room/info/?aid=1988&room_id=' + encodeURIComponent(roomId), { headers: tiktokHeaders() })).json(); } catch {}
+    if (info && info.status_code === 4003110) throw Object.assign(new Error(AGE_MSG), { final: !COOKIES_FILE, ageRestricted: true });
+    const su = info && info.data && info.data.stream_url;
+    if (su) {
+      streams = {};
+      try {
+        const sd = JSON.parse(su.live_core_sdk_data.pull_data.stream_data).data;
+        for (const q of Object.keys(sd)) if (sd[q].main) streams[q] = { hls: sd[q].main.hls, flv: sd[q].main.flv };
+      } catch {
+        const flv = su.flv_pull_url || {}, best = flv.FULL_HD1 || flv.HD1 || flv.SD1 || flv.SD2 || su.rtmp_pull_url;
+        streams.hd = { hls: su.hls_pull_url || '', flv: best || '' };
+      }
+    }
+    if (!streams) throw Object.assign(new Error('TikTok says this channel is live but did not share its video. It may be restricted (for example to followers, subscribers or some regions).'), { final: !COOKIES_FILE });
+  }
   const sources = [];
   const sid = crypto.randomBytes(8).toString('hex');
   sessions.set(sid, { 'User-Agent': UA, Referer: 'https://www.tiktok.com/' });
   setTimeout(() => sessions.delete(sid), 6 * 3600 * 1000).unref();
   const px = (url) => `/proxy?s=${sid}&u=${encodeURIComponent(url)}`;
   for (const q of ['origin', 'uhd', 'hd', 'sd', 'ld']) {
-    const m = sd[q] && sd[q].main;
+    const m = streams[q];
     if (!m) continue;
     if (m.hls) sources.push({ type: 'hls', url: px(m.hls) });
     if (m.flv) sources.push({ type: 'flv', url: px(m.flv) });
@@ -189,7 +236,10 @@ async function resolve(inputUrl, embed = false) {
   const ttUser = tiktokLiveUser(u);
   if (ttUser) {
     try { return await resolveTiktokLive(ttUser); }
-    catch (e) { console.log('tiktok native failed:', e.message, '- trying yt-dlp'); }
+    catch (e) {
+      if (e.final) throw e; // e.g. age-restricted: yt-dlp would only say "not currently live"
+      console.log('tiktok native failed:', e.message, '- trying yt-dlp');
+    }
   }
   let out;
   try { out = await ytdlp(['-J', '--no-playlist', '--no-warnings', u]); }
@@ -385,7 +435,7 @@ async function liveYoutube(q, cat, after) {
 // TikTok has no public "browse live" list; we can only check specific usernames
 async function tiktokStatus(user) {
   const api = `https://www.tiktok.com/api-live/user/room/?aid=1988&uniqueId=${encodeURIComponent(user)}&sourceType=54`;
-  const r = await fetch(api, { headers: { 'User-Agent': UA, Referer: 'https://www.tiktok.com/', Accept: 'application/json' } });
+  const r = await fetch(api, { headers: tiktokHeaders() });
   const j = await r.json();
   if (!j.data || !j.data.user) return { user, found: false };
   const room = j.data.liveRoom || {};

@@ -312,12 +312,14 @@ The Live browser lists Twitch, Kick, YouTube and TikTok only. X and Facebook hav
 
 ### Facebook and logins
 
-Facebook and some X content need you to be signed in, and yt-dlp's Facebook support changes often. What SplitDeck does:
+Facebook, some X content and **age-restricted (18+) TikTok LIVEs** need you to be signed in, and yt-dlp's Facebook support changes often. What SplitDeck does:
 
 1. It tries yt-dlp first. If that works you get the normal clean player with the full toolbar.
 2. If it fails, it shows Facebook's **embedded player** inside the tile. That works for **public** videos and live streams. It is Facebook's own player, so SplitDeck's volume, mute, speed and quality controls do not apply to it; use the controls inside it. A private or removed video shows Facebook's own "Video unavailable" message.
 
-To let yt-dlp use your login (for example for content that needs an account), put a cookies file in the project folder named `cookies.txt` (Netscape format, exported from your browser with a cookie-export extension), or point the `COOKIES` variable at it. Keep this file private: it is excluded from Git and never uploaded anywhere, but anyone with the file can use your logins.
+**TikTok 18+ LIVEs:** TikTok marks some LIVEs as age-restricted. It then shows them only to signed-in adult accounts and leaves the video out for everyone else, so without a login SplitDeck shows *"This TikTok LIVE is age-restricted (18+)"*. With a `cookies.txt` from a browser where you are signed in to an adult TikTok account, SplitDeck sends your TikTok cookies (and only those) to TikTok and can play them.
+
+To let SplitDeck and yt-dlp use your login (for example for content that needs an account), put a cookies file in the project folder named `cookies.txt` (Netscape format, exported from your browser with a cookie-export extension), or point the `COOKIES` variable at it. Keep this file private: it is excluded from Git and never uploaded anywhere, but anyone with the file can use your logins.
 
 ## 12. Configuration
 
@@ -426,6 +428,8 @@ SplitDeck/
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
 | The link finder shows no results | The page probably loads its video with JavaScript, or protects it. The finder only reads source text. Try **Try the page link itself**. |
 | The link finder says an address is blocked | It refuses private-network addresses. See `ALLOW_PRIVATE_URLS` in [Configuration](#12-configuration). |
+| A TikTok LIVE says it is age-restricted (18+) | TikTok only shows it to signed-in adults. Add a `cookies.txt` from a browser signed in to TikTok (see [Facebook and logins](#facebook-and-logins)). |
+| A TikTok LIVE says it is live but did not share its video | The LIVE is restricted in another way (for example followers or subscribers only, or a region). A `cookies.txt` from an account that can watch it may help. |
 | Everything is stuck or wrong | Click **Reset**, then press **Ctrl+F5**. |
 
 ## 17. Limitations
