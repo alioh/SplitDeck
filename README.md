@@ -41,15 +41,6 @@ On Windows you can double-click `start.bat` instead. It does both steps and open
 3. Use **Layout** to pick an arrangement and **Live** to browse what is live.
 4. Press **H** to hide the top bar.
 
-## Restricted streams (sign-ins)
-
-Some streams only play for a signed-in account, such as age-restricted (18+) TikTok LIVEs, age-restricted YouTube videos and Twitch subscriber-only streams. For those:
-
-1. Sign in to the site in your browser and export its cookies with a cookie-export extension (cookies.txt or JSON format).
-2. In SplitDeck, click **🔑 Sign-ins**, paste them into that site's box and click **Save**.
-
-Your sign-in stays in your browser and is only sent to your own SplitDeck, only for that site. Treat it like a password and only use it with your own copy. Details: [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md#6c-sign-ins-for-restricted-streams).
-
 ## AI Disclosure
 
 This application was built using AI assistance. 
