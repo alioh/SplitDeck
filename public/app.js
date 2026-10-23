@@ -560,7 +560,7 @@ function setSpeed(t, r) {
 const CAP_KEY = 'splitdeck.capstyle';
 const CAP_DEFAULT = { size: '100', color: '#ffffff', bg: 'semi', font: 'sans', edge: 'none', pos: 'auto' };
 const CAP_OPTS = {
-  size: [['75', 'Small'], ['100', 'Normal'], ['130', 'Large'], ['170', 'Huge']],
+  size: [['55', 'X-small'], ['75', 'Small'], ['100', 'Normal'], ['130', 'Large'], ['170', 'Huge']],
   color: [['#ffffff', 'White'], ['#ffeb3b', 'Yellow'], ['#4dd0e1', 'Cyan'], ['#7cff8a', 'Green'], ['#ff8a80', 'Red']],
   bg: [['none', 'None'], ['light', 'Light'], ['semi', 'Medium'], ['solid', 'Solid']],
   font: [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Mono'], ['round', 'Rounded'], ['bold', 'Bold']],
@@ -639,8 +639,9 @@ function renderCfg(t) {
       ...lv.map((x) => ({ label: x.h + 'p', on: !h.autoLevelEnabled && h.currentLevel === x.i, fn: () => { h.currentLevel = x.i; } }))]);
   }
   if (t.captions && t.captions.length) {
-    sec('Captions', [{ label: 'Off', on: t.capIdx < 0, fn: () => setCaption(t, -1) }, ...t.captions.map((c, i) => ({ label: c.name, on: t.capIdx === i, fn: () => setCaption(t, i) })),
-      { label: (t.capStyleOpen ? '▾' : '▸') + ' Caption style', on: false, fn: () => { t.capStyleOpen = !t.capStyleOpen; } }]);
+    sec('Captions', [{ label: 'Off', on: t.capIdx < 0, fn: () => setCaption(t, -1) }, ...t.captions.map((c, i) => ({ label: c.name, on: t.capIdx === i, fn: () => setCaption(t, i) }))]);
+    // its own heading, so it is not mistaken for one more language
+    sec('Caption style', [{ label: t.capStyleOpen ? '▾ Hide style options' : '▸ Size, color, font, position', on: false, fn: () => { t.capStyleOpen = !t.capStyleOpen; } }]);
     if (t.capStyleOpen) {
       const cs = capStyle, opt = (key, list) => list.map(([v, label]) => ({ label, on: cs[key] === v, fn: () => setCapStyle(key, v) }));
       sec('Caption size', opt('size', CAP_OPTS.size));

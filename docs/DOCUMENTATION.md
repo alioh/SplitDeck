@@ -175,7 +175,7 @@ Sections appear only when they apply to the current player.
 |---|---|
 | Speed | 0.5× to 2× (not for live). |
 | Quality | Auto, or a fixed resolution. |
-| Captions | Off, or any available language. **▸ Caption style** opens the style options below. |
+| Captions | Off, or any available language. The **Caption style** row below it opens the style options. |
 | Audio | Appears when there is more than one audio track. |
 | Player | YouTube only: switch between the clean player and YouTube's own player. |
 
@@ -317,11 +317,11 @@ Captions in the clean player include every language the uploader provided, plus 
 
 ### Caption style
 
-In a player's **⚙** menu, under **Captions**, click **▸ Caption style** to change how captions look:
+In a player's **⚙** menu, under **Caption style**, click **▸ Size, color, font, position** to change how captions look:
 
 | Option | Choices |
 |---|---|
-| Size | Small, Normal, Large, Huge |
+| Size | X-small, Small, Normal, Large, Huge |
 | Color | White, Yellow, Cyan, Green, Red |
 | Background | None, Light, Medium, Solid |
 | Font | Sans, Serif, Mono, Rounded, Bold |
