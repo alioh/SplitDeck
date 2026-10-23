@@ -111,6 +111,10 @@ The **Layout** menu shows a preview of every arrangement available for the curre
 
 Your choice is remembered per player count.
 
+### Clicking a player
+
+A single click on the picture pauses or plays it. Pressing and **moving** the mouse instead starts a drag to swap players (below), so the two never get mixed up. Double-click goes fullscreen.
+
 ### Swapping players
 
 **Press anywhere on a player and move it onto another player** to swap their positions. This works with a mouse and with a finger. A plain click or tap does nothing special, because the drag only starts after the pointer has moved a few pixels. The other players light up with **Swap here** while you drag; let go over one to swap. The players keep playing while they move.
@@ -156,10 +160,10 @@ Adding a player or using **Reset** also returns to the grid. Closing the focused
 
 | Control | What it does |
 |---|---|
-| ⏸ / ▶ | Pause or play. |
+| ⏸ / ▶ | Pause or play. You can also **click the picture** to pause or play (a short ▶ / ❚❚ symbol shows in the middle). On a touch screen a tap shows the controls instead. |
 | Speaker and slider | Mute and volume for this player only. |
 | **Solo** | Hear only this player; everything else is muted. Click again to unmute the rest. |
-| Seek bar | Appears for recorded videos (not live). Shows time played and length; drag to seek. |
+| Seek bar | Appears for recorded videos (not live). Shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. |
 | **CC** | Turns captions on or off. Shown only when captions exist. |
 | **⚙** | Settings menu. |
 
@@ -171,7 +175,7 @@ Sections appear only when they apply to the current player.
 |---|---|
 | Speed | 0.5× to 2× (not for live). |
 | Quality | Auto, or a fixed resolution. |
-| Captions | Off, or any available language. |
+| Captions | Off, or any available language. **▸ Caption style** opens the style options below. |
 | Audio | Appears when there is more than one audio track. |
 | Player | YouTube only: switch between the clean player and YouTube's own player. |
 
@@ -310,6 +314,21 @@ By default, YouTube links play in SplitDeck's **clean player**. It has no logo, 
 If the clean player cannot load a video, SplitDeck falls back automatically to YouTube's embedded player. You can also switch manually: **⚙ → Player**. YouTube's player has its own limits (overlays you cannot remove) and only speed is available from SplitDeck's menu.
 
 Captions in the clean player include every language the uploader provided, plus the automatic captions in the video's own language. Captions are off until you turn them on.
+
+### Caption style
+
+In a player's **⚙** menu, under **Captions**, click **▸ Caption style** to change how captions look:
+
+| Option | Choices |
+|---|---|
+| Size | Small, Normal, Large, Huge |
+| Color | White, Yellow, Cyan, Green, Red |
+| Background | None, Light, Medium, Solid |
+| Font | Sans, Serif, Mono, Rounded, Bold |
+| Outline | None, Shadow, Outline |
+| Position | As made (where the captions place themselves), Top, Middle, Bottom |
+
+One style applies to every player and is remembered in this browser. **Reset caption style** goes back to the defaults. The style applies to SplitDeck's own players (the clean YouTube player and other videos with captions), not to YouTube's own embedded player, which has its own caption settings.
 
 ## 9. Saved data and reset
 

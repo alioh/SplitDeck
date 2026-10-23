@@ -245,7 +245,7 @@ function createTile(url, opts = {}) {
         <button data-a="close" title="Close">✕</button>
       </div>
       <div class="hud bot">
-        <div class="seekrow" hidden><span class="tcur">0:00</span><input class="seek" type="range" min="0" max="1000" step="1" value="0"><span class="tdur">0:00</span></div>
+        <div class="seekrow" hidden><span class="tcur">0:00</span><span class="seekwrap"><input class="seek" type="range" min="0" max="1000" step="1" value="0"><span class="seektip" hidden>0:00</span></span><span class="tdur">0:00</span></div>
         <button data-a="play" title="Play / pause">⏸</button>
         <button data-a="mute" title="Mute / unmute"></button>
         <input class="vol" type="range" min="0" max="1" step="0.01">
@@ -272,12 +272,27 @@ function createTile(url, opts = {}) {
   tiles.push(t);
 
   el.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => action(t, b.dataset.a)));
-  t.seek.oninput = () => { t.seeking = true; t.tcur.textContent = fmt((t.seek.value / 1000) * t.dur); };
+  // hovering the seek bar shows the time under the mouse; dragging shows the time you will jump to
+  const tip = el.querySelector('.seektip');
+  const THUMB = 14; // px; the slider's handle never goes past half its width from each end
+  const showTip = (ratio) => {
+    if (!t.dur) { tip.hidden = true; return; }
+    ratio = Math.min(1, Math.max(0, ratio));
+    const w = t.seek.clientWidth;
+    tip.textContent = fmt(ratio * t.dur); tip.hidden = false;
+    tip.style.left = (THUMB / 2 + ratio * (w - THUMB)) + 'px';
+  };
+  const ratioAt = (clientX) => { const r = t.seek.getBoundingClientRect(); return (clientX - r.left - THUMB / 2) / Math.max(1, r.width - THUMB); };
+  t.seek.addEventListener('pointermove', (e) => showTip(ratioAt(e.clientX)));
+  t.seek.addEventListener('pointerdown', (e) => showTip(ratioAt(e.clientX)));
+  t.seek.addEventListener('pointerleave', () => { if (!t.seeking) tip.hidden = true; });
+  t.seek.oninput = () => { t.seeking = true; t.tcur.textContent = fmt((t.seek.value / 1000) * t.dur); showTip(t.seek.value / 1000); };
   t.seek.onchange = () => {
     const to = (t.seek.value / 1000) * t.dur;
     if (t.video) t.video.currentTime = to;
     if (t.iframe) ytCmd(t, 'seekTo', [to, true]);
     t.seeking = false;
+    if (!t.seek.matches(':hover')) tip.hidden = true;
   };
   t.volEl.oninput = () => { t.vol = +t.volEl.value; t.muted = t.vol === 0; applyAudio(t); applyAudioUI(t); save(); };
   el.addEventListener('dblclick', (e) => { if (!e.target.closest('.hud')) action(t, 'fs'); });
@@ -300,6 +315,15 @@ function createTile(url, opts = {}) {
   });
   setupDnD(t);
   setupPointerDrag(t);
+  // mouse click on the picture pauses / plays (a drag is ignored; on touch screens a tap shows the controls instead)
+  t.box.addEventListener('click', (e) => {
+    if (t.dragged) { t.dragged = false; return; }
+    if (e.pointerType && e.pointerType !== 'mouse') return;
+    if (e.button !== 0 || e.target.closest('.hud, .cfgmenu, .dropzone, .divider, .status, .flash, button, a, input, select, textarea')) return;
+    if (!t.video && !t.iframe) return;
+    action(t, 'play');
+    flashPlay(t);
+  });
   applyAudioUI(t);
   applyLayout();
   load(t);
@@ -384,6 +408,7 @@ function mountVideo(t, data, i = 0) {
     const tr = document.createElement('track');
     tr.kind = 'subtitles'; tr.label = c.name; tr.srclang = String(c.code || '').slice(0, 2); tr.src = c.url;
     v.appendChild(tr);
+    tr.track.addEventListener('cuechange', () => placeCues(tr.track));
   });
   [...v.textTracks].forEach((x) => { x.mode = 'disabled'; }); // captions start off, like YouTube
   v.playbackRate = t.speed || 1;
@@ -531,9 +556,50 @@ function setSpeed(t, r) {
   if (t.video) t.video.playbackRate = r;
   if (t.iframe) ytCmd(t, 'setPlaybackRate', [r]);
 }
+/* ---------------- caption style (applies to every player, saved in this browser) ---------------- */
+const CAP_KEY = 'splitdeck.capstyle';
+const CAP_DEFAULT = { size: '100', color: '#ffffff', bg: 'semi', font: 'sans', edge: 'none', pos: 'auto' };
+const CAP_OPTS = {
+  size: [['75', 'Small'], ['100', 'Normal'], ['130', 'Large'], ['170', 'Huge']],
+  color: [['#ffffff', 'White'], ['#ffeb3b', 'Yellow'], ['#4dd0e1', 'Cyan'], ['#7cff8a', 'Green'], ['#ff8a80', 'Red']],
+  bg: [['none', 'None'], ['light', 'Light'], ['semi', 'Medium'], ['solid', 'Solid']],
+  font: [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Mono'], ['round', 'Rounded'], ['bold', 'Bold']],
+  edge: [['none', 'None'], ['shadow', 'Shadow'], ['outline', 'Outline']],
+  pos: [['auto', 'As made'], ['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']],
+};
+let capStyle = Object.assign({}, CAP_DEFAULT);
+try { const sv = JSON.parse(localStorage.getItem(CAP_KEY) || 'null'); if (sv) for (const k of Object.keys(CAP_DEFAULT)) if (CAP_OPTS[k].some(([v]) => v === sv[k])) capStyle[k] = sv[k]; } catch {}
+const saveCapStyle = () => { try { localStorage.setItem(CAP_KEY, JSON.stringify(capStyle)); } catch {} };
+function applyCapStyle() {
+  const bg = { none: 'transparent', light: 'rgba(0,0,0,.35)', semi: 'rgba(0,0,0,.7)', solid: '#000' }[capStyle.bg];
+  const font = { sans: 'system-ui, "Segoe UI", Arial, sans-serif', serif: 'Georgia, "Times New Roman", serif', mono: 'Consolas, "Courier New", monospace', round: '"Segoe UI Rounded", "Arial Rounded MT Bold", "Comic Sans MS", system-ui, sans-serif', bold: 'system-ui, "Segoe UI", Arial, sans-serif' }[capStyle.font];
+  const edge = { none: 'none', shadow: '2px 2px 3px #000, 0 0 4px #000', outline: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 2px #000' }[capStyle.edge];
+  let el = document.getElementById('capstyle');
+  if (!el) { el = document.createElement('style'); el.id = 'capstyle'; document.head.appendChild(el); }
+  el.textContent = '.box video::cue { color: ' + capStyle.color + '; background: ' + bg + '; font-family: ' + font + '; font-weight: ' + (capStyle.font === 'bold' ? '700' : '400') +
+    '; font-size: ' + (1.15 * capStyle.size / 100).toFixed(3) + 'em; text-shadow: ' + edge + '; }';
+  tiles.forEach((t) => { if (t.video) [...t.video.textTracks].forEach((tr) => { if (tr.mode === 'showing') { placeCues(tr, true); tr.mode = 'hidden'; tr.mode = 'showing'; } }); }); // re-show so a paused video redraws its caption now
+}
+// Top / Middle / Bottom: move each line; "As made" keeps the position the captions came with
+function placeCues(track, all) {
+  const list = all ? track.cues : track.activeCues;
+  if (!list) return;
+  for (const cue of list) {
+    if (!('line' in cue)) continue;
+    if (cue._orig === undefined) cue._orig = { line: cue.line, snap: cue.snapToLines, lineAlign: cue.lineAlign, position: cue.position, align: cue.align };
+    if (capStyle.pos === 'auto') { const o = cue._orig; cue.snapToLines = o.snap; cue.line = o.line; cue.lineAlign = o.lineAlign; cue.position = o.position; cue.align = o.align; continue; }
+    cue.snapToLines = false; cue.position = 'auto'; cue.align = 'center';
+    if (capStyle.pos === 'top') { cue.line = 4; cue.lineAlign = 'start'; }
+    else if (capStyle.pos === 'middle') { cue.line = 50; cue.lineAlign = 'center'; }
+    else { cue.line = 92; cue.lineAlign = 'end'; }
+  }
+}
+function setCapStyle(key, value) { capStyle[key] = value; saveCapStyle(); applyCapStyle(); }
+applyCapStyle();
+
 function setCaption(t, i) {
   t.capIdx = i;
-  if (t.video) [...t.video.textTracks].forEach((tt, k) => { tt.mode = k === i ? 'showing' : 'disabled'; });
+  if (t.video) [...t.video.textTracks].forEach((tt, k) => { tt.mode = k === i ? 'showing' : 'disabled'; if (k === i) setTimeout(() => placeCues(tt, true), 300); });
   const b = t.el.querySelector('[data-a=cc]'); if (b) b.classList.toggle('on', i >= 0);
 }
 function closeCfg(t) {
@@ -555,7 +621,7 @@ function renderCfg(t) {
   const sec = (title, chips) => {
     if (!chips.length) return;
     const d = document.createElement('div'); d.className = 'cfgsec';
-    d.innerHTML = '<div class="cfgt">' + esc(title) + '</div>';
+    d.innerHTML = title ? '<div class="cfgt">' + esc(title) + '</div>' : '';
     const row = document.createElement('div'); row.className = 'cfgrow';
     chips.forEach((c) => {
       const b = document.createElement('button'); b.textContent = c.label; if (c.on) b.classList.add('on');
@@ -572,7 +638,20 @@ function renderCfg(t) {
     sec('Quality', [{ label: 'Auto' + cur, on: h.autoLevelEnabled, fn: () => { h.currentLevel = -1; } },
       ...lv.map((x) => ({ label: x.h + 'p', on: !h.autoLevelEnabled && h.currentLevel === x.i, fn: () => { h.currentLevel = x.i; } }))]);
   }
-  if (t.captions && t.captions.length) sec('Captions', [{ label: 'Off', on: t.capIdx < 0, fn: () => setCaption(t, -1) }, ...t.captions.map((c, i) => ({ label: c.name, on: t.capIdx === i, fn: () => setCaption(t, i) }))]);
+  if (t.captions && t.captions.length) {
+    sec('Captions', [{ label: 'Off', on: t.capIdx < 0, fn: () => setCaption(t, -1) }, ...t.captions.map((c, i) => ({ label: c.name, on: t.capIdx === i, fn: () => setCaption(t, i) })),
+      { label: (t.capStyleOpen ? '▾' : '▸') + ' Caption style', on: false, fn: () => { t.capStyleOpen = !t.capStyleOpen; } }]);
+    if (t.capStyleOpen) {
+      const cs = capStyle, opt = (key, list) => list.map(([v, label]) => ({ label, on: cs[key] === v, fn: () => setCapStyle(key, v) }));
+      sec('Caption size', opt('size', CAP_OPTS.size));
+      sec('Caption color', opt('color', CAP_OPTS.color));
+      sec('Caption background', opt('bg', CAP_OPTS.bg));
+      sec('Caption font', opt('font', CAP_OPTS.font));
+      sec('Caption outline', opt('edge', CAP_OPTS.edge));
+      sec('Caption position', opt('pos', CAP_OPTS.pos));
+      sec('', [{ label: 'Reset caption style', on: false, fn: () => { capStyle = Object.assign({}, CAP_DEFAULT); saveCapStyle(); applyCapStyle(); } }]);
+    }
+  }
   if (h && h.audioTracks && h.audioTracks.length > 1) sec('Audio', h.audioTracks.map((a, i) => ({ label: a.name || a.lang || 'Track ' + (i + 1), on: h.audioTrack === i, fn: () => { h.audioTrack = i; } })));
   if (t.native || isYt) sec('Player', [
     { label: 'Clean player', on: !isYt, fn: () => { t.pref = ''; t.triedDirect = false; load(t); } },
@@ -616,6 +695,14 @@ function exitFocus(fromHistory) {
 }
 focusBackBtn.onclick = () => exitFocus();
 window.addEventListener('popstate', () => { if (focusId !== null) exitFocus(true); });
+
+// a short play / pause symbol in the middle of the player, like YouTube
+function flashPlay(t) {
+  let f = t.box.querySelector('.flash');
+  if (!f) { f = document.createElement('div'); f.className = 'flash'; t.box.appendChild(f); }
+  f.textContent = t.paused ? '❚❚' : '▶';
+  f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+}
 
 function removeTile(t) {
   if (focusId === t.id) exitFocus(); // closing the focused player returns to the grid
@@ -668,7 +755,6 @@ function setupPointerDrag(t) {
         }
         document.querySelectorAll('.dropzone.over').forEach((d) => d.classList.remove('over'));
         dragSrc = null;
-        if (ev.pointerType === 'mouse') t.dragged = false; // (touch clears it in its tap handler)
       }
     };
     box.addEventListener('pointermove', move); box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);

@@ -18,6 +18,7 @@ button:hover { background: #2b2b38; }
 .addform button:hover { background: #ff6674; }
 .addform button:disabled { opacity: .5; cursor: not-allowed; }
 .spacer { flex: 1; }
+.topbar button { white-space: nowrap; }
 .rowbreak { display: none; }
 .count { color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pop-wrap { position: relative; }
@@ -191,7 +192,7 @@ html { color-scheme: dark; }
 .cfgrow { display: flex; flex-wrap: wrap; gap: 5px; }
 .cfgrow button { padding: 3px 9px; font-size: 12px; }
 .cfgrow button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.box video::cue { background: rgba(0, 0, 0, .7); color: #fff; font-size: 1.15em; }
+/* caption look: set by the Caption style options (see applyCapStyle in app.js) */
 
 /* ================= phones & tablets ================= */
 body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
@@ -324,3 +325,14 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .clink { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; text-decoration: underline; }
 .status button + button { margin-top: 6px; }
 @media (pointer: coarse) { .sgsite textarea { font-size: 16px; } }
+
+/* click to pause: short symbol in the middle */
+.flash { position: absolute; left: 50%; top: 50%; z-index: 7; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: #000a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; pointer-events: none; opacity: 0; }
+.flash.go { animation: flashgo .6s ease-out; }
+@keyframes flashgo { 0% { opacity: 1; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.25); } }
+
+/* time preview above the seek bar */
+.seekwrap { position: relative; flex: 1; display: flex; align-items: center; min-width: 0; }
+.seekwrap .seek { flex: 1; width: 100%; }
+.seektip { position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%); background: #000d; color: #fff; border: 1px solid #ffffff2a; border-radius: 5px; padding: 2px 7px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; z-index: 8; }
+.seektip[hidden] { display: none; }
