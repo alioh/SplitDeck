@@ -18,7 +18,7 @@
     <button type="submit" id="addBtn">+ Add</button>
   </form>
   <button id="inspectBtn" title="Find stream links in a web page"><span class="ic">🔎</span><span class="lbl">Find</span></button>
-  <button id="liveBtn" title="Browse live streams"><span class="ic">📡</span><span class="lbl">Live</span></button>
+  <button id="liveBtn" title="Browse live streams"><span class="ic">📡</span><span class="lbl">Live</span><span class="lbadge" id="liveBadge" hidden></span></button>
   <span class="rowbreak"></span>
   <div class="spacer"></div>
   <span class="count" id="count">0 / 8</span>
@@ -35,7 +35,7 @@
 <aside id="live" class="livepanel" hidden>
   <div class="lhead"><b>Live now</b><span class="spacer"></span><button id="liveRefresh" title="Refresh">⟳</button><button id="liveClose" title="Close">✕</button></div>
   <div class="ltabs" id="liveTabs">
-    <button data-site="twitch" class="on">Twitch</button><button data-site="kick">Kick</button><button data-site="youtube">YouTube</button><button data-site="tiktok">TikTok</button>
+    <button data-site="following" title="Live channels you follow">★ Following</button><button data-site="twitch" class="on">Twitch</button><button data-site="kick">Kick</button><button data-site="youtube">YouTube</button><button data-site="tiktok">TikTok</button>
   </div>
   <div class="lctl" id="liveCtl"></div>
   <div class="llist" id="liveList"></div>

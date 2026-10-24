@@ -862,10 +862,9 @@ function prettySource(s) { return String(s).replace(/(Live|Stream)$/i, '').repla
 
 /* ---------------- live browser ---------------- */
 const liveEl = $('#live'), liveList = $('#liveList'), liveCtl = $('#liveCtl');
-const live = { site: 'twitch', lang: '', qs: { twitch: '', kick: '', youtube: '' }, ttq: '', tt: [], token: 0, cat: { twitch: '', kick: '', youtube: '' }, catName: { twitch: '', kick: '', youtube: '' }, cats: {}, langs: {}, next: null, loading: false, seen: new Set() };
-try { live.lang = localStorage.getItem('splitdeck.lang') || ''; live.tt = JSON.parse(localStorage.getItem('splitdeck.tiktok') || '[]'); } catch {}
+const live = { site: 'twitch', lang: '', qs: { twitch: '', kick: '', youtube: '' }, ttq: '', token: 0, cat: { twitch: '', kick: '', youtube: '' }, catName: { twitch: '', kick: '', youtube: '' }, cats: {}, langs: {}, next: null, loading: false, seen: new Set() };
+try { live.lang = localStorage.getItem('splitdeck.lang') || ''; localStorage.removeItem('splitdeck.tiktok'); } catch {} // the old TikTok watchlist is gone
 const kfmt = (n) => (n == null ? '' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(n >= 1e4 ? 0 : 1) + 'K' : String(n));
-const saveTT = () => { try { localStorage.setItem('splitdeck.tiktok', JSON.stringify(live.tt)); } catch {} };
 
 const ttClean = (v) => v.trim().replace(/^.*tiktok\.com\/@/i, '').replace(/^@/, '').replace(/[\/?#].*$/, '');
 const optHtml = (v, n, sel) => '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(n) + '</option>';
@@ -886,9 +885,25 @@ function ensureList(kind, site, apply) {
 
 function renderLiveCtl() {
   const site = live.site;
+  if (site === 'following') {
+    liveCtl.innerHTML = '<div class="fsites">' + FOLLOW_SITES.map(([k, n]) => '<button type="button" data-k="' + k + '"' + (follow.off.includes(k) ? '' : ' class="on"') + '>' + n + '</button>').join('') + '</div>' +
+      '<div class="hint">Live channels you follow, from the accounts saved under 🔑 Sign-ins. Checked every 2 minutes while SplitDeck is open.</div>' +
+      '<label class="fnotify"><input type="checkbox"' + (follow.notify ? ' checked' : '') + '> Tell me when someone goes live</label>' +
+      '<div class="hint">Twitch and TikTok are not included: they block this from outside their own sites.</div>';
+    // a platform switched off is hidden here and left out of the background check
+    liveCtl.querySelectorAll('.fsites button').forEach((b) => { b.onclick = () => {
+      const k = b.dataset.k;
+      follow.off = follow.off.includes(k) ? follow.off.filter((x) => x !== k) : follow.off.concat(k);
+      try { localStorage.setItem('splitdeck.followoff', JSON.stringify(follow.off)); } catch {}
+      if (follow.off.includes(k)) { delete follow.known[k]; followBadge(); }
+      loadLive();
+    }; });
+    liveCtl.querySelector('.fnotify input').onchange = (e) => { follow.notify = e.target.checked; try { localStorage.setItem('splitdeck.follownotify', follow.notify ? '1' : '0'); } catch {} };
+    return;
+  }
   if (site === 'tiktok') {
     liveCtl.innerHTML = '<form class="srch"><input type="text" placeholder="Look up a TikTok username…" value="' + esc(live.ttq) + '"><button>Look up</button>' + (live.ttq ? '<button type="button" class="clr" title="Clear">✕</button>' : '') + '</form>' +
-      '<div class="hint">TikTok has no public search or live list. Look up a username to see if they are live, then ＋ add them to your watchlist.</div>';
+      '<div class="hint">TikTok has no public search or live list. Look up a username to see if they are live.</div>';
     liveCtl.querySelector('form').onsubmit = (e) => { e.preventDefault(); live.ttq = ttClean(liveCtl.querySelector('input').value); loadLive(); };
     const clr = liveCtl.querySelector('.clr'); if (clr) clr.onclick = () => { live.ttq = ''; loadLive(); };
     return;
@@ -944,22 +959,21 @@ function bindCatPicker(site) {
 }
 document.addEventListener('click', () => document.querySelectorAll('.catpop').forEach((p) => { p.hidden = true; }));
 
+// "3 hours ago" today, "2 days ago" after that
+function ago(sec) {
+  const m = Math.max(0, (Date.now() / 1000 - sec) / 60), n = (v, u) => v + ' ' + u + (v === 1 ? '' : 's') + ' ago';
+  if (m < 60) return m < 1 ? 'just now' : n(Math.floor(m), 'minute');
+  if (m < 1440) return n(Math.floor(m / 60), 'hour');
+  const d = Math.floor(m / 1440);
+  return d < 31 ? n(d, 'day') : d < 365 ? n(Math.floor(d / 30), 'month') : n(Math.floor(d / 365), 'year');
+}
 function liveRow(it, kind) {
   const tt = kind !== 'std', off = tt && !it.live;
   const row = document.createElement('div');
   row.className = 'litem' + (off ? ' off' : '');
   const title = tt ? (it.found ? it.title || '' : 'User not found') : it.title;
-  const watching = tt && live.tt.includes(it.user);
-  const btn = kind === 'tt-watch' ? '<button class="lrm" title="Remove from watchlist">✕</button>'
-    : kind === 'tt-result' && it.found && !watching ? '<button class="lrm" title="Add to watchlist">＋</button>' : '';
-  row.innerHTML = '<div class="lthumb">' + (it.thumb ? '<img loading="lazy" referrerpolicy="no-referrer" src="' + esc(it.thumb) + '">' : '') + (!off && it.viewers != null ? '<span class="lv">' + kfmt(it.viewers) + '</span>' : '') + '</div>' +
-    '<div class="lmeta"><div class="lt">' + esc(title || '') + '</div><div class="lc">' + esc((tt ? '@' + it.user + (it.found && !it.live ? ' · offline' : '') : it.channel) + (it.category ? ' · ' + it.category : '')) + '</div></div>' + btn;
-  const b = row.querySelector('.lrm');
-  if (b) b.onclick = (e) => {
-    e.stopPropagation();
-    if (kind === 'tt-watch') live.tt = live.tt.filter((x) => x !== it.user); else if (!live.tt.includes(it.user)) live.tt.push(it.user);
-    saveTT(); loadLive();
-  };
+  row.innerHTML = '<div class="lthumb">' + (it.thumb ? '<img loading="lazy" referrerpolicy="no-referrer" src="' + esc(it.thumb) + '">' : '') + (it.isLive ? '<span class="llive">LIVE</span>' : '') + (!off && it.viewers != null ? '<span class="lv">' + kfmt(it.viewers) + '</span>' : '') + '</div>' +
+    '<div class="lmeta"><div class="lt">' + esc(title || '') + '</div><div class="lc">' + esc((tt ? '@' + it.user + (it.found && !it.live ? ' · offline' : '') : it.channel) + (it.category ? ' · ' + it.category : '') + (it.uploaded ? ' · ' + ago(it.uploaded) : '')) + '</div></div>';
   row.onclick = () => { if (!off && it.found !== false && addUrl(it.url)) row.classList.add('added'); };
   return row;
 }
@@ -1003,7 +1017,7 @@ function afterPage(data, my) {
   else if (live.seen.size) setSentinel('End of list');
 }
 async function loadMore() {
-  if (live.loading || !live.next || live.site === 'tiktok') return;
+  if (live.loading || !live.next || live.site === 'tiktok' || live.site === 'following') return;
   const my = live.token, after = live.next;
   live.loading = true;
   try {
@@ -1021,18 +1035,15 @@ async function loadLive() {
   live.loading = false; live.next = null; live.seen = new Set(); moreObserver.disconnect();
   renderLiveCtl();
   const msg = (cls, html) => { if (my === live.token) liveList.innerHTML = '<div class="lmsg ' + cls + '">' + html + '</div>'; };
+  if (site === 'following') return loadFollowing(my);
   if (site === 'tiktok') {
-    if (!live.ttq && !live.tt.length) return msg('', 'Your watchlist is empty.<br>Look up a username above.');
+    if (!live.ttq) return msg('', 'Look up a username above.');
     liveList.innerHTML = '<div class="lmsg"><div class="spin"></div>Loading…</div>';
     try {
-      const [res, watch] = await Promise.all([
-        live.ttq ? liveFetch('site=tiktok&users=' + encodeURIComponent(live.ttq)) : Promise.resolve([]),
-        live.tt.length ? liveFetch('site=tiktok&users=' + encodeURIComponent(live.tt.join(','))) : Promise.resolve([]),
-      ]);
+      const res = await liveFetch('site=tiktok&users=' + encodeURIComponent(live.ttq));
       if (my !== live.token) return;
       liveList.innerHTML = '';
-      if (res.length) { liveList.insertAdjacentHTML('beforeend', '<div class="lsec">Result</div>'); res.forEach((it) => liveList.appendChild(liveRow(it, 'tt-result'))); }
-      if (watch.length) { liveList.insertAdjacentHTML('beforeend', '<div class="lsec">Watchlist</div>'); watch.forEach((it) => liveList.appendChild(liveRow(it, 'tt-watch'))); }
+      res.forEach((it) => liveList.appendChild(liveRow(it, 'tt')));
     } catch (e) { msg('err', 'Could not load: ' + esc(e.message)); }
     return;
   }
@@ -1048,6 +1059,70 @@ async function loadLive() {
     appendItems(data.items); afterPage(data, my);
   } catch (e) { msg('err', 'Could not load: ' + esc(e.message)); }
 }
+/* ---------------- following: who is live on the user's own accounts (needs their sign-ins) ---------------- */
+const FOLLOW_SITES = [['youtube', 'YouTube'], ['kick', 'Kick']]; // Twitch and TikTok block this from outside their own sites
+const follow = { notify: true, known: {}, off: [] };
+try { follow.notify = localStorage.getItem('splitdeck.follownotify') !== '0'; follow.off = JSON.parse(localStorage.getItem('splitdeck.followoff') || '[]'); } catch {}
+const savedSignin = (site) => (signinAllowed && (loadSignins()[site] || {}).header) || '';
+async function fetchFollowing(site) {
+  const cookies = savedSignin(site);
+  if (!cookies) return null;
+  const r = await fetch('/api/following', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site, cookies }) });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'failed');
+  return d;
+}
+const followOne = fetchFollowing;
+const canFollow = (site) => !follow.off.includes(site) && !!savedSignin(site);
+
+// remember who is live per site; on later checks, announce the ones that just went live
+function noteLive(site, items) {
+  const prev = follow.known[site], now = new Set(items.map((it) => it.url));
+  if (prev && follow.notify) {
+    const fresh = items.filter((it) => !prev.has(it.url)), name = FOLLOW_SITES.find((s) => s[0] === site)[1];
+    if (fresh.length === 1) toast(fresh[0].channel + ' is live on ' + name);
+    else if (fresh.length > 1) toast(fresh.length + ' channels you follow went live on ' + name);
+  }
+  follow.known[site] = now;
+  followBadge();
+}
+function followBadge() {
+  const n = Object.values(follow.known).reduce((a, s) => a + s.size, 0), b = $('#liveBadge');
+  b.textContent = n; b.hidden = !n; b.title = n + ' followed channel' + (n === 1 ? ' is' : 's are') + ' live';
+}
+function followPoll() {
+  FOLLOW_SITES.forEach(([s]) => { if (canFollow(s)) followOne(s).then((d) => { if (d) noteLive(s, d.live || []); }).catch(() => {}); });
+}
+
+function loadFollowing(my) {
+  liveList.innerHTML = '';
+  if (!signinAllowed) { liveList.innerHTML = '<div class="lmsg">Sign-ins are turned off on this SplitDeck, so there is nothing to follow.</div>'; return; }
+  const vbox = document.createElement('div'); // YouTube's latest videos go last, after every site's live list
+  const shown = FOLLOW_SITES.filter(([s]) => !follow.off.includes(s));
+  if (!shown.length) { liveList.innerHTML = '<div class="lmsg">Every platform is switched off. Pick one above.</div>'; return; }
+  shown.forEach(([s, name]) => {
+    const box = document.createElement('div'); liveList.appendChild(box);
+    const head = '<div class="lsec">' + name + (s === 'youtube' ? ' · Live now' : '') + '</div>';
+    const line = (html, cls) => box.insertAdjacentHTML('beforeend', '<div class="fmsg' + (cls ? ' ' + cls : '') + '">' + html + '</div>');
+    if (!canFollow(s)) {
+      box.innerHTML = head; line('Add your ' + name + ' sign-in to see who is live. <button class="clink">Open Sign-ins</button>');
+      box.querySelector('.clink').onclick = () => openSignin(true, s);
+      return;
+    }
+    box.innerHTML = head; line('<span class="spin sm"></span>Checking…');
+    followOne(s).then((d) => {
+      if (my !== live.token) return;
+      noteLive(s, d.live || []);
+      box.innerHTML = head;
+      if (d.note) line(esc(d.note));
+      if (!d.live.length && !d.note) line('Nobody you follow is live right now.');
+      d.live.forEach((it) => box.appendChild(liveRow({ ...it, isLive: true }, 'std')));
+      if (d.videos && d.videos.length) { vbox.innerHTML = '<div class="lsec">Latest videos · YouTube</div>'; d.videos.forEach((it) => vbox.appendChild(liveRow(it, 'std'))); }
+    }).catch((e) => { if (my === live.token) { box.innerHTML = head; line(esc(e.message), 'err'); } });
+  });
+  liveList.appendChild(vbox);
+}
+
 function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; signinEl.hidden = true; loadLive(); } }
 $('#liveBtn').onclick = (e) => { e.stopPropagation(); openLive(liveEl.hidden); };
 $('#liveClose').onclick = () => openLive(false);
@@ -1142,8 +1217,9 @@ insForm.onsubmit = async (e) => {
 const SIGNIN_KEY = 'splitdeck.signin';
 const SIGNIN_SITES = [
   { key: 'tiktok', name: 'TikTok', domain: 'tiktok.com', home: 'https://www.tiktok.com/', host: /(^|\.)tiktok\.com$/i, why: 'Age-restricted (18+) LIVEs, and LIVEs limited to followers or subscribers.' },
-  { key: 'youtube', name: 'YouTube', domain: 'youtube.com', home: 'https://www.youtube.com/', host: /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i, why: 'Age-restricted and members-only videos and streams.' },
+  { key: 'youtube', name: 'YouTube', domain: 'youtube.com', home: 'https://www.youtube.com/', host: /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i, why: 'Age-restricted and members-only videos and streams, and your subscriptions in Live → Following.' },
   { key: 'twitch', name: 'Twitch', domain: 'twitch.tv', home: 'https://www.twitch.tv/', host: /(^|\.)twitch\.tv$/i, why: 'Subscriber-only streams and VODs.' },
+  { key: 'kick', name: 'Kick', domain: 'kick.com', home: 'https://kick.com/', host: /(^|\.)kick\.com$/i, why: 'Your followed channels in Live → Following.' },
 ];
 const signinEl = $('#signinPanel'), signinBody = $('#signinBody'), signinBtn = $('#signinBtn');
 let signinAllowed = false;
@@ -1209,7 +1285,7 @@ function renderSignin() {
         '<div class="sgact"><button data-do="save">Save</button>' + (v && v.header ? '<button data-do="remove" class="danger">Remove</button>' : '') + '<span class="sgmsg"></span></div></div>';
     }).join('') +
     '<details class="sghow"><summary>How do I get my sign-in?</summary><ol>' +
-      '<li>In your browser, sign in to the site (TikTok, YouTube or Twitch).</li>' +
+      '<li>In your browser, sign in to the site (TikTok, YouTube, Twitch or Kick).</li>' +
       '<li>Install a cookie-export extension that saves in the <b>cookies.txt (Netscape)</b> or <b>JSON</b> format, for example “Get cookies.txt LOCALLY”.</li>' +
       '<li>Open the site, export its cookies, open the file, copy everything and paste it in the box above. Only that site’s cookies are kept.</li>' +
       '<li>Sign-ins expire. If a stream stops working, paste a fresh one.</li></ol></details>' +
@@ -1225,18 +1301,19 @@ function renderSignin() {
       renderSignin();
       const m2 = signinBody.querySelector('[data-k="' + site.key + '"] .sgmsg');
       if (m2) { m2.textContent = 'Saved' + (p.skipped ? ' (ignored ' + p.skipped + ' cookie' + (p.skipped === 1 ? '' : 's') + ' from other sites or expired)' : '') + '. Retry the stream.'; m2.className = 'sgmsg good'; }
-      retrySiteTiles(site.key);
+      retrySiteTiles(site.key); followPoll();
     };
     const rm = box.querySelector('[data-do=remove]');
-    if (rm) rm.onclick = () => { const all = loadSignins(); delete all[site.key]; storeSignins(all); renderSignin(); };
+    if (rm) rm.onclick = () => { const all = loadSignins(); delete all[site.key]; storeSignins(all); delete follow.known[site.key]; followBadge(); renderSignin(); };
   });
-  $('#sgClearAll').onclick = () => { if (!confirm('Remove all saved sign-ins from this browser?')) return; try { localStorage.removeItem(SIGNIN_KEY); } catch {} renderSignin(); };
+  $('#sgClearAll').onclick = () => { if (!confirm('Remove all saved sign-ins from this browser?')) return; try { localStorage.removeItem(SIGNIN_KEY); } catch {} follow.known = {}; followBadge(); renderSignin(); };
 }
 // after saving a sign-in, retry the players from that site that failed
 function retrySiteTiles(key) { tiles.forEach((t) => { if (siteKeyOf(t.url) === key && !t.status.hidden && t.status.classList.contains('err')) load(t); }); }
 
 // the server says whether sign-ins are allowed here (only on this computer or the home network)
-fetch('/api/config').then((r) => r.json()).then((c) => { signinAllowed = !!c.signin; signinBtn.hidden = !signinAllowed; }).catch(() => {});
+fetch('/api/config').then((r) => r.json()).then((c) => { signinAllowed = !!c.signin; signinBtn.hidden = !signinAllowed; }).catch(() => {})
+  .then(() => { followPoll(); setInterval(followPoll, 120000); }); // track followed channels while the app is open
 
 /* ---------------- reset ---------------- */
 $('#resetBtn').onclick = () => {

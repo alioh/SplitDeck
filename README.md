@@ -18,6 +18,7 @@ Works with YouTube, TikTok LIVE, Twitch, Kick, X and Facebook (best effort), and
 - A built-in "Live now" browser with search, language and category filters.
 - A link finder: paste a web page and list the `.m3u8`, `.mp4` and `.flv` links in its source.
 - Sign-ins for restricted streams (TikTok 18+ LIVEs, age-restricted YouTube, Twitch subscriber-only), kept only in your browser.
+- A Following tab: see who you follow is live on YouTube and Kick, plus YouTube's latest videos, with a note when someone goes live.
 - Your setup is remembered between sessions.
 - Works on phones and tablets, with touch controls.
 

@@ -25,6 +25,7 @@ const SIGNIN_SITES = {
   tiktok: { domain: '.tiktok.com', host: /(^|\.)tiktok\.com$/i },
   youtube: { domain: '.youtube.com', host: /(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i },
   twitch: { domain: '.twitch.tv', host: /(^|\.)twitch\.tv$/i },
+  kick: { domain: '.kick.com', host: /(^|\.)kick\.com$/i },
 };
 const signinStore = new AsyncLocalStorage(); // { site, header, cookieFile } while a request with a sign-in is being handled
 function siteOfUrl(u) {
@@ -495,6 +496,74 @@ async function tiktokStatus(user) {
   };
 }
 
+// ---------- Following: who is live (and YouTube's latest videos) from the user's own accounts ----------
+// Uses the sign-in saved in the browser (sent per request, like /api/resolve). Every site here is an unofficial
+// endpoint and may change; errors are turned into short messages for the Following tab.
+function cookieVal(header, name) {
+  const m = String(header).match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+  if (!m) return '';
+  try { return decodeURIComponent(m[1]).replace(/^"|"$/g, ''); } catch { return m[1]; }
+}
+const EXPIRED = (name) => name + ' did not accept your sign-in. It may have expired: paste a fresh one under 🔑 Sign-ins.';
+
+// curl (Kick sits behind Cloudflare, which blocks Node's fetch); the token goes in through stdin, not the command line
+function curlJsonAuth(url, headers) {
+  return new Promise((resolve, reject) => {
+    const child = execFile('curl', ['-s', '-m', '20', '-A', UA, '-K', '-', url], { maxBuffer: 32 * 1024 * 1024, windowsHide: true }, (e, out) => {
+      if (e) return reject(new Error('curl failed: ' + e.message));
+      try { resolve(JSON.parse(out)); } catch { reject(new Error('Kick blocked the request')); }
+    });
+    child.stdin.end(headers.map((h) => 'header = "' + h.replace(/[\\"]/g, '\\$&') + '"').join('\n') + '\n');
+  });
+}
+async function followKick(header) {
+  const tok = cookieVal(header, 'session_token');
+  if (!tok) throw new Error('This Kick sign-in has no "session_token" cookie. Export the cookies again while signed in to kick.com.');
+  const live = [];
+  let cursor = 0;
+  for (let page = 0; page < 8; page++) {
+    const j = await curlJsonAuth('https://kick.com/api/v2/channels/followed' + (cursor ? '?cursor=' + cursor : ''), ['Accept: application/json', 'Authorization: Bearer ' + tok]);
+    if (!j || !Array.isArray(j.channels)) throw new Error(j && /unauth/i.test(j.message || '') ? EXPIRED('Kick') : 'Kick did not return your followed channels');
+    j.channels.filter((c) => c.is_live && c.channel_slug).forEach((c) => live.push({
+      url: 'https://kick.com/' + c.channel_slug, channel: c.user_username || c.channel_slug, title: c.session_title || '', viewers: c.viewer_count, thumb: c.profile_picture || '', category: c.category_name || undefined,
+    }));
+    // live channels come first, so stop at the first offline one
+    if (!j.nextCursor || j.channels.some((c) => !c.is_live)) break;
+    cursor = j.nextCursor;
+  }
+  return { live: live.sort((a, b) => (b.viewers || 0) - (a.viewers || 0)) };
+}
+
+// runs inside withSignin(), so yt-dlp gets the sign-in as a temporary cookies file
+async function followYoutube() {
+  let out;
+  try { out = await ytdlp(['--flat-playlist', '-J', '--playlist-end', '60', '--no-warnings', '--extractor-args', 'youtubetab:approximate_date', 'https://www.youtube.com/feed/subscriptions'], 90000); }
+  catch (e) { throw new Error(/sign|log ?in|cookie|does not exist|private/i.test(e.message) ? EXPIRED('YouTube') : e.message); }
+  const thumb = (e) => { const t = (e.thumbnails || []).slice(-1)[0]; return t ? t.url : ''; };
+  const item = (e) => ({ url: 'https://www.youtube.com/watch?v=' + e.id, channel: e.channel || e.uploader || '', title: e.title, viewers: e.concurrent_view_count, thumb: thumb(e), uploaded: e.timestamp || undefined });
+  const entries = (JSON.parse(out).entries || []).filter((e) => e && e.id);
+  if (!entries.length) throw new Error(EXPIRED('YouTube')); // a signed-out request gets an empty feed instead of an error
+  return {
+    live: entries.filter((e) => e.live_status === 'is_live').map(item),
+    videos: entries.filter((e) => e.live_status !== 'is_live' && e.live_status !== 'is_upcoming').slice(0, 40).map((e) => ({ ...item(e), viewers: undefined })),
+  };
+}
+
+// Twitch and TikTok are not here: both block follow lists for requests from outside their own sites.
+async function following(site, header) {
+  if (site === 'kick') return followKick(header);
+  return withSignin('https://www.youtube.com/', header, followYoutube);
+}
+
+function readJson(req, limit = 65536) {
+  return new Promise((ok, bad) => {
+    let size = 0; const parts = [];
+    req.on('data', (c) => { size += c.length; if (size > limit) { bad(new Error('Request too large')); req.destroy(); } else parts.push(c); });
+    req.on('end', () => { try { ok(JSON.parse(Buffer.concat(parts).toString('utf8') || '{}')); } catch { bad(new Error('Invalid request')); } });
+    req.on('error', bad);
+  });
+}
+
 function proxyUrl(sid, abs) { return `/proxy?s=${sid}&u=${encodeURIComponent(abs)}`; }
 
 function rewriteM3u8(text, base, sid) {
@@ -732,12 +801,7 @@ http.createServer(async (req, res) => {
       try {
         let target = url.searchParams.get('url') || '', embed = url.searchParams.get('embed') === '1', cookies = '';
         if (req.method === 'POST') {
-          const body = await new Promise((ok, bad) => {
-            let size = 0; const parts = [];
-            req.on('data', (c) => { size += c.length; if (size > 65536) { bad(new Error('Request too large')); req.destroy(); } else parts.push(c); });
-            req.on('end', () => { try { ok(JSON.parse(Buffer.concat(parts).toString('utf8') || '{}')); } catch { bad(new Error('Invalid request')); } });
-            req.on('error', bad);
-          });
+          const body = await readJson(req);
           target = String(body.url || ''); embed = !!body.embed;
           if (body.cookies && SIGNIN_ENABLED && fromLocalNetwork(req)) cookies = String(body.cookies).slice(0, 16384);
         }
@@ -748,6 +812,20 @@ http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: e.message }));
       }
       return;
+    }
+    if (url.pathname === '/api/following') {
+      res.setHeader('Content-Type', 'application/json');
+      try {
+        if (req.method !== 'POST') { res.statusCode = 405; return res.end(JSON.stringify({ error: 'POST only' })); }
+        if (!SIGNIN_ENABLED || !fromLocalNetwork(req)) { res.statusCode = 403; return res.end(JSON.stringify({ error: 'Sign-ins are turned off here' })); }
+        const body = await readJson(req), site = String(body.site || '');
+        if (!['youtube', 'kick'].includes(site)) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'unknown site' })); }
+        const header = cleanCookieHeader(String(body.cookies || '').slice(0, 16384));
+        if (!header) { res.statusCode = 400; return res.end(JSON.stringify({ error: 'No sign-in' })); }
+        // cached per sign-in (by hash), so the background check and the open tab share one lookup
+        const key = 'follow:' + site + ':' + crypto.createHash('sha256').update(header).digest('hex');
+        return res.end(JSON.stringify(await cached(key, site === 'youtube' ? 180000 : 60000, () => following(site, header))));
+      } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: e.message })); }
     }
     if (url.pathname === '/api/categories' || url.pathname === '/api/languages') {
       res.setHeader('Content-Type', 'application/json');

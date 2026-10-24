@@ -247,11 +247,13 @@ Some streams only play for a signed-in account:
 | YouTube | Age-restricted and members-only videos and streams |
 | Twitch | Subscriber-only streams and videos |
 
+A sign-in also fills the **★ Following** tab of the Live browser with the channels you follow on YouTube and Kick. See [Following](#following).
+
 When that happens the player says so, for example *"This TikTok LIVE is age-restricted (18+)…"*, with an **🔑 Open Sign-ins** button.
 
 ### Adding a sign-in
 
-1. In your normal browser, sign in to the site (TikTok, YouTube or Twitch).
+1. In your normal browser, sign in to the site (TikTok, YouTube, Twitch or Kick).
 2. Install a cookie-export extension that saves in the **cookies.txt (Netscape)** or **JSON** format, for example "Get cookies.txt LOCALLY".
 3. Open the site, export its cookies, open the exported file and copy everything.
 4. In SplitDeck, click **🔑 Sign-ins** in the top bar, paste into that site's box and click **Save**.
@@ -268,6 +270,7 @@ A web page cannot read another site's cookies; browsers block this on purpose. C
 
 - It is saved **only in this browser** (local storage), on the computer you use SplitDeck from.
 - When you open a stream, only **that site's** sign-in is sent, inside the request (never in the address), to **your own SplitDeck server**.
+- While SplitDeck is open, it also sends each saved sign-in to your server every 2 minutes to check who you follow is live ([Following](#following)). The server only asks that site for your followed channels.
 - The server uses it for that one lookup and then forgets it. It is never written to the log. For yt-dlp it is put in a private temporary file that is deleted as soon as the lookup ends.
 - The server accepts sign-ins only from the same computer or your home network (private network addresses). Requests from elsewhere are treated as if no sign-in was sent.
 - To turn the feature off completely, start the server with `DISABLE_SIGNIN=1`. The **Sign-ins** button then disappears.
@@ -282,7 +285,26 @@ The older method still works: a `cookies.txt` file in the SplitDeck folder (see 
 
 Click **Live** in the top bar to open a panel listing what is live right now. Click any row to add it as a player. A row you added is outlined.
 
-There is one tab per site.
+There is a **★ Following** tab, then one tab per site.
+
+### Following
+
+Shows who you follow that is live right now, using the sign-ins saved under **🔑 Sign-ins** ([section 6c](#6c-sign-ins-for-restricted-streams)):
+
+| Site | What it shows | Notes |
+|---|---|---|
+| YouTube | Live streams from your subscriptions, then **Latest videos** from your subscriptions feed | Slowest to load (several seconds). Checked at most every 3 minutes. |
+| Kick | Followed channels that are live | Needs the `session_token` cookie in the sign-in. |
+
+Twitch and TikTok are not included: both block follow lists for requests from outside their own sites.
+
+The platform buttons at the top (**YouTube**, **Kick**) choose which platforms are shown; click one to switch it off or on. A platform that is switched off is also left out of the background check and the notes. The choice is remembered.
+
+A site without a sign-in shows an **Open Sign-ins** link. If a site says it did not accept your sign-in, it has probably expired: paste a fresh one.
+
+While SplitDeck is open, it checks again every 2 minutes, even with the panel closed. The **Live** button shows how many followed channels are live, and a short note appears when someone goes live (*"… is live on Kick"*). Untick **Tell me when someone goes live** to turn the notes off. Nothing is checked while SplitDeck is closed.
+
+These lists come from each site's own, unofficial web endpoints. A site can change them at any time, and then that site's section shows an error until SplitDeck is updated.
 
 ### Twitch, Kick and YouTube
 
@@ -299,13 +321,7 @@ Kick has no language filter of its own, so SplitDeck scans its list page by page
 
 ### TikTok
 
-TikTok does not offer a public list of who is live. Instead:
-
-1. Type a username (with or without `@`) and click **Look up**. The result shows whether they are live.
-2. Click **＋** on the result to add them to your **watchlist**.
-3. The watchlist shows who is live right now. Offline accounts are dimmed.
-
-The watchlist is saved in your browser.
+TikTok does not offer a public list of who is live. Instead, type a username (with or without `@`) and click **Look up**. The result shows whether they are live; click it to add the player.
 
 ## 8. YouTube: clean player and YouTube's player
 
@@ -338,11 +354,14 @@ SplitDeck remembers your session in the browser's `localStorage`:
 |---|---|
 | `splitdeck.v2` | The list of players (link, volume, mute, fit/fill), chosen layouts and divider sizes. |
 | `splitdeck.lang` | Last language filter in the Live browser. |
-| `splitdeck.tiktok` | The TikTok watchlist. |
+| `splitdeck.signin` | Sign-ins saved under **🔑 Sign-ins**. |
+| `splitdeck.capstyle` | Caption style. |
+| `splitdeck.follownotify` | Whether to show a note when a followed channel goes live. |
+| `splitdeck.followoff` | Platforms switched off in the Following tab. |
 
 When you reopen the page, the same players are added again and start playing.
 
-**Reset** closes all players, clears the saved list and resets layouts and divider sizes. It does not clear the TikTok watchlist or language filter.
+**Reset** closes all players, clears the saved list and resets layouts and divider sizes. It does not clear the language filter.
 
 Data is stored per browser and per address. Using a different browser, or a different port, starts empty.
 
@@ -413,6 +432,7 @@ The page talks to the local server with these endpoints. They are internal and m
 | Endpoint | Purpose |
 |---|---|
 | `POST /api/resolve` | Same as below, with a JSON body `{url, embed, cookies}`. `cookies` is that site's sign-in from the Sign-ins panel; it is only accepted from this computer or the home network. |
+| `POST /api/following` | JSON body `{site, cookies}` with `site` `youtube` or `kick`. Returns the followed channels that are `live` (and YouTube's latest `videos`), each with `url`, `channel`, `title`, `viewers`, `thumb`. Only accepted from this computer or the home network. |
 | `GET /api/config` | Tells the page whether sign-ins are allowed (`{signin: true/false}`). |
 | `GET /api/resolve?url=…[&embed=1]` | Turns a link into something the page can play. Returns `type` (`hls`, `file`, `flv`, `youtube` or `embed`), a playable `url`, a list of fallback `sources`, `title`, `live`, and for YouTube `captions`. `embed=1` forces YouTube's embedded player. |
 | `GET /api/live?site=…` | Lists live streams for `twitch`, `kick` or `youtube`, or checks usernames for `tiktok`. Parameters: `lang`, `cat`, `q` (search), `after` (paging token), `users` (TikTok). Returns `items` and `next`. |
@@ -503,7 +523,7 @@ SplitDeck/
 - Maximum of 8 players.
 - Clean YouTube playback is limited to 1080p.
 - Twitch search shows one page of results. A Twitch category combined with a language also shows one page.
-- TikTok has no public search or live list; only username lookup and a watchlist.
+- TikTok has no public search or live list; only username lookup.
 - Kick's language filter scans pages, so rare languages can be slow on the first load.
 - SplitDeck relies on public web endpoints and yt-dlp, not official APIs. Sites can change them without notice, which can break a feature until the project is updated.
 - Some content cannot be played: private, age-restricted, region-locked or login-only streams.
@@ -517,7 +537,7 @@ SplitDeck/
 - The link finder refuses private-network addresses by default, so it cannot be used to probe your home network.
 - Sign-ins pasted in the app stay in your browser and are only sent to your own SplitDeck server, only from this computer or your home network, and never logged (see [section 6c](#6c-sign-ins-for-restricted-streams)).
 - Your optional `cookies.txt` stays on your computer and is excluded from Git. Treat it like a password.
-- Everything you save (players, layouts, watchlist) stays in your browser. Nothing is sent to a SplitDeck server.
+- Everything you save (players, layouts, sign-ins) stays in your browser. Nothing is sent to a SplitDeck server.
 - Your computer requests media and listings directly from the sites you use, as a normal browser would.
 - The media proxy only accepts session IDs that your own server issued, and it is reachable only from your computer.
 - You are responsible for following the terms of the sites you use.

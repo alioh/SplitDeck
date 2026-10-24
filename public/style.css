@@ -336,3 +336,17 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .seekwrap .seek { flex: 1; width: 100%; }
 .seektip { position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%); background: #000d; color: #fff; border: 1px solid #ffffff2a; border-radius: 5px; padding: 2px 7px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; z-index: 8; }
 .seektip[hidden] { display: none; }
+
+/* following tab */
+#liveBtn { position: relative; }
+.lbadge { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; line-height: 16px; font-weight: 700; text-align: center; pointer-events: none; }
+.ltabs button { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 12px; }
+.lctl .fnotify input { width: 16px; height: 16px; flex: none; padding: 0; margin: 0; accent-color: var(--accent); }
+.fnotify { display: flex; align-items: center; gap: 6px; margin-top: 7px; font-size: 12px; color: var(--text); cursor: pointer; }
+.fmsg { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 8px 10px; font-size: 12px; color: var(--dim); line-height: 1.45; }
+.fmsg.err { color: #ff9aa4; }
+.spin.sm { width: 14px; height: 14px; border-width: 2px; }
+.fsites { display: flex; gap: 6px; flex-wrap: wrap; }
+.fsites button { padding: 4px 10px; border-radius: 14px; font-size: 12px; color: var(--dim); background: transparent; }
+.fsites button.on { color: var(--text); border-color: var(--accent); background: rgba(255, 255, 255, .06); }
+.llive { position: absolute; left: 4px; top: 4px; background: #e5243b; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; }
