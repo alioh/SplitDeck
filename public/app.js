@@ -247,6 +247,7 @@ function createTile(url, opts = {}) {
       <div class="hud bot">
         <div class="seekrow" hidden><span class="tcur">0:00</span><span class="seekwrap"><input class="seek" type="range" min="0" max="1000" step="1" value="0"><span class="seektip" hidden>0:00</span></span><span class="tdur">0:00</span></div>
         <button data-a="play" title="Play / pause">⏸</button>
+        <button data-a="golive" class="golive" hidden title="Go to the live point">LIVE</button>
         <button data-a="mute" title="Mute / unmute"></button>
         <input class="vol" type="range" min="0" max="1" step="0.01">
         <button data-a="solo" title="Only hear this one">Solo</button>
@@ -263,7 +264,7 @@ function createTile(url, opts = {}) {
   t.volEl = el.querySelector('.vol');
   t.seekRow = el.querySelector('.seekrow'); t.seek = el.querySelector('.seek');
   t.tcur = el.querySelector('.tcur'); t.tdur = el.querySelector('.tdur');
-  t.muteBtn = el.querySelector('[data-a=mute]');
+  t.muteBtn = el.querySelector('[data-a=mute]'); t.liveBtn = el.querySelector('[data-a=golive]');
   t.ttl = el.querySelector('.ttl');
   el.querySelector('.lnk').href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
   t.box.classList.toggle('fill', t.fill);
@@ -356,6 +357,7 @@ async function load(t, direct = false) {
 }
 
 function destroyMedia(t) {
+  if (t.liveBtn) t.liveBtn.hidden = true;
   if (t.hls) { try { t.hls.destroy(); } catch {} t.hls = null; }
   if (t.mpegts) { try { t.mpegts.destroy(); } catch {} t.mpegts = null; }
   if (t.ytTimer) { clearInterval(t.ytTimer); t.ytTimer = null; }
@@ -417,6 +419,8 @@ function mountVideo(t, data, i = 0) {
   v.addEventListener('canplay', () => setStatus(t, 'ok'));
   const prog = () => updateProgress(t, v.currentTime, v.duration);
   v.addEventListener('timeupdate', prog); v.addEventListener('durationchange', prog);
+  t.liveBtn.hidden = !t.live;
+  ['timeupdate', 'pause', 'play'].forEach((ev) => v.addEventListener(ev, () => liveState(t)));
   v.addEventListener('ended', () => setStatus(t, 'err', t.live ? 'Stream ended' : 'Finished'));
   applyAudio(t);
   const start = () => v.play().catch(() => { t.muted = true; applyAudio(t); applyAudioUI(t); v.play().catch(() => {}); });
@@ -506,6 +510,29 @@ function applyAudioUI(t) {
   t.muteBtn.textContent = t.muted || t.vol === 0 ? ICON.mute : ICON.vol;
   updateMuteAll();
 }
+// LIVE button: red at the live point, grey when behind (paused, or resumed after a pause); a click jumps to live
+function liveLag(t) {
+  const v = t.video; if (!v) return 0;
+  if (t.hls && t.hls.liveSyncPosition) return t.hls.liveSyncPosition - v.currentTime;
+  let edge = 0;
+  [v.seekable, v.buffered].forEach((r) => { if (r.length) edge = Math.max(edge, r.end(r.length - 1)); });
+  return edge ? edge - v.currentTime : 0;
+}
+function liveState(t) {
+  if (!t.liveBtn || t.liveBtn.hidden) return;
+  const behind = t.video.paused || liveLag(t) > 5;
+  t.liveBtn.classList.toggle('behind', behind);
+  t.liveBtn.title = behind ? 'Behind live: click to go to the live point' : 'You are watching live';
+}
+function goLive(t) {
+  const v = t.video; if (!v) return;
+  try {
+    if (t.mpegts) { t.mpegts.unload(); t.mpegts.load(); return; } // FLV: reconnecting is the reliable way back to live
+    if (t.hls && t.hls.liveSyncPosition) { v.currentTime = t.hls.liveSyncPosition; return; }
+    const r = v.seekable.length ? v.seekable : v.buffered;
+    if (r.length) v.currentTime = Math.max(0, r.end(r.length - 1) - 2);
+  } catch {}
+}
 function setPlayIcon(t) { t.el.querySelector('[data-a=play]').textContent = t.paused ? '▶' : '⏸'; }
 function updateMuteAll() {
   const allMuted = tiles.length > 0 && tiles.every((t) => t.muted), b = $('#muteAllBtn');
@@ -538,6 +565,10 @@ function action(t, a) {
       if (t.video) t.paused ? t.video.pause() : t.video.play().catch(() => {});
       if (t.iframe) ytCmd(t, t.paused ? 'pauseVideo' : 'playVideo');
       return setPlayIcon(t);
+    case 'golive':
+      goLive(t);
+      if (t.paused) { t.paused = false; t.video.play().catch(() => {}); setPlayIcon(t); }
+      return liveState(t);
     case 'main': return swap(tiles.indexOf(t), 0);
     case 'cfg': return toggleCfg(t);
     case 'focus': return focusId === t.id ? exitFocus() : enterFocus(t);

@@ -161,6 +161,7 @@ Adding a player or using **Reset** also returns to the grid. Closing the focused
 | Control | What it does |
 |---|---|
 | ⏸ / ▶ | Pause or play. You can also **click the picture** to pause or play (a short ▶ / ❚❚ symbol shows in the middle). On a touch screen a tap shows the controls instead. |
+| **● LIVE** | Shown on live streams. Red when you are watching live, grey when you are behind (for example after a pause). Click it to jump to the live point. Resuming after a pause continues from where you paused. |
 | Speaker and slider | Mute and volume for this player only. |
 | **Solo** | Hear only this player; everything else is muted. Click again to unmute the rest. |
 | Seek bar | Appears for recorded videos (not live). Shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. |
