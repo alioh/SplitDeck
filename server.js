@@ -591,7 +591,8 @@ async function handleProxy(req, res, q) {
   const isM3u8 = /mpegurl/i.test(ct) || /\.m3u8(\?|$)/i.test(target);
   const out = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
   if (isM3u8) {
-    const text = await r.text();
+    let text;
+    try { text = await r.text(); } catch { return res.destroy(); } // the player went away mid-read
     out['Content-Type'] = 'application/vnd.apple.mpegurl';
     res.writeHead(r.status, out);
     return res.end(rewriteM3u8(text, r.url || target, sid));
@@ -866,7 +867,7 @@ http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
       return res.end(text);
     }
-    if (url.pathname === '/proxy') return handleProxy(req, res, url.searchParams);
+    if (url.pathname === '/proxy') return await handleProxy(req, res, url.searchParams); // await, so the catch below sees its errors
     serveStatic(req, res, url.pathname);
   } catch (e) {
     if (!res.headersSent) res.writeHead(500);

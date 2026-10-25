@@ -378,7 +378,10 @@ const fmt = (sec) => {
 // live: "-1:05" behind the live point, or "LIVE" at it
 const liveOffset = (sec) => (sec < 3 ? 'LIVE' : '-' + fmt(sec));
 // for a live stream: the part that can be rewound, from the oldest kept point to the live point
+// YouTube's own player stops reporting while paused, so the live point is estimated from the time since the pause
+const ytLiveEnd = (t) => Math.max(t.ytDur || 0, t.ytCur || 0, t.paused && t.pausedAt ? t.pausedDur + (Date.now() - t.pausedAt) / 1000 : 0);
 function liveWindow(t) {
+  if (t.iframe) return t.ytDvr && t.ytDur > 5 ? { start: 0, end: ytLiveEnd(t) } : null;
   const v = t.video; if (!v || t.mpegts) return null; // FLV keeps catching up to live, so it cannot be rewound
   let start = Infinity, end = 0;
   [v.seekable, v.buffered].forEach((r) => { if (r.length) { start = Math.min(start, r.start(0)); end = Math.max(end, r.end(r.length - 1)); } });
@@ -499,11 +502,15 @@ function mountYoutube(t, id) {
     if (!t.ready && (d.event === 'onReady' || d.event === 'initialDelivery' || d.event === 'infoDelivery')) {
       t.ready = true; applyAudio(t); setStatus(t, 'ok');
     }
+    if (d.info && d.info.videoData && d.info.videoData.isLive !== undefined) {
+      t.live = !!d.info.videoData.isLive; t.liveBtn.hidden = !t.live; t.ytDvr = t.live && d.info.videoData.allowLiveDvr !== false;
+    }
     if (d.info && (d.info.duration !== undefined || d.info.currentTime !== undefined)) {
       if (d.info.duration !== undefined) t.ytDur = d.info.duration;
       if (d.info.currentTime !== undefined) t.ytCur = d.info.currentTime;
       updateProgress(t, t.ytCur || 0, t.ytDur || 0);
     }
+    if (d.info) liveState(t);
     if (d.event === 'onError') {
       // embedding disabled by the uploader: fall back to extracting the raw stream
       if (!t.triedDirect) { t.triedDirect = true; t.pref = ''; load(t, true); }
@@ -536,6 +543,7 @@ function applyAudioUI(t) {
 }
 // LIVE button: red at the live point, grey when behind (paused, or resumed after a pause); a click jumps to live
 function liveLag(t) {
+  if (t.iframe) return ytLiveEnd(t) - (t.ytCur || 0); // YouTube's own player: its duration is the live point
   const v = t.video; if (!v) return 0;
   if (t.hls && t.hls.liveSyncPosition) return t.hls.liveSyncPosition - v.currentTime;
   let edge = 0;
@@ -544,11 +552,18 @@ function liveLag(t) {
 }
 function liveState(t) {
   if (!t.liveBtn || t.liveBtn.hidden) return;
-  const behind = t.video.paused || liveLag(t) > 5;
+  const behind = (t.video ? t.video.paused : t.paused) || liveLag(t) > (t.iframe ? 15 : 5);
   t.liveBtn.classList.toggle('behind', behind);
   t.liveBtn.title = behind ? 'Behind live: click to go to the live point' : 'You are watching live';
 }
+setInterval(() => tiles.forEach((t) => {
+  if (!t.live || !t.paused) return;
+  if (t.video) updateProgress(t, t.video.currentTime, t.video.duration);
+  else if (t.iframe) updateProgress(t, t.ytCur || 0, t.ytDur || 0);
+  liveState(t);
+}), 1000);
 function goLive(t) {
+  if (t.iframe) return ytCmd(t, 'seekTo', [(t.ytDur || 0) + 3600, true]); // past the end lands on the live point
   const v = t.video; if (!v) return;
   try {
     if (t.mpegts) { t.mpegts.unload(); t.mpegts.load(); return; } // FLV: reconnecting is the reliable way back to live
@@ -586,12 +601,16 @@ function action(t, a) {
     }
     case 'play':
       t.paused = !t.paused;
+      if (t.paused) { t.pausedDur = Math.max(t.ytDur || 0, t.ytCur || 0); t.pausedAt = Date.now(); }
       if (t.video) t.paused ? t.video.pause() : t.video.play().catch(() => {});
       if (t.iframe) ytCmd(t, t.paused ? 'pauseVideo' : 'playVideo');
       return setPlayIcon(t);
     case 'golive':
       goLive(t);
-      if (t.paused) { t.paused = false; t.video.play().catch(() => {}); setPlayIcon(t); }
+      if (t.paused) {
+        t.paused = false; setPlayIcon(t);
+        if (t.video) t.video.play().catch(() => {}); else ytCmd(t, 'playVideo');
+      }
       return liveState(t);
     case 'main': return swap(tiles.indexOf(t), 0);
     case 'cfg': return toggleCfg(t);

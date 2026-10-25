@@ -164,7 +164,7 @@ Adding a player or using **Reset** also returns to the grid. Closing the focused
 | **● LIVE** | Shown on live streams. Red when you are watching live, grey when you are behind (for example after a pause). Click it to jump to the live point. Resuming after a pause continues from where you paused. |
 | Speaker and slider | Mute and volume for this player only. The volume slider slides out of the speaker button when you hover over it (on touch screens it is always shown). |
 | **Solo** | Hear only this player; everything else is muted. Click again to unmute the rest. |
-| Seek bar | For recorded videos it shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. For live streams it covers the part you can rewind: drag back to watch an earlier moment, forward to catch up. It shows how far behind live you are (for example *-0:38*), or **LIVE**. |
+| Seek bar | For recorded videos it shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. For live streams it covers the part you can rewind: drag back to watch an earlier moment, forward to catch up. It shows how far behind live you are (for example *-0:38*), or **LIVE**, and keeps updating while paused, so you can move back or forward before you press play. It also appears in YouTube's own player when the stream allows rewinding. |
 | **CC** | Turns captions on or off. Shown only when captions exist. |
 | **⚙** | Settings menu. |
 
@@ -330,7 +330,7 @@ TikTok does not offer a public list of who is live. Instead, type a username (wi
 
 By default, YouTube links play in SplitDeck's **clean player**. It has no logo, no suggested-video box, no annotations and no burned-in captions, and it provides the full toolbar from [section 6](#6-player-controls): captions, speed, quality up to 1080p, and audio tracks.
 
-If the clean player cannot load a video, SplitDeck falls back automatically to YouTube's embedded player. You can also switch manually: **⚙ → Player**. YouTube's player has its own limits (overlays you cannot remove) and only speed is available from SplitDeck's menu.
+If the clean player cannot load a video, SplitDeck falls back automatically to YouTube's embedded player. You can also switch manually: **⚙ → Player**. YouTube's player has its own limits (overlays you cannot remove) and only speed is available from SplitDeck's menu. The **● LIVE** button still works there on live streams.
 
 Captions in the clean player include every language the uploader provided, plus the automatic captions in the video's own language. Captions are off until you turn them on.
 
