@@ -356,3 +356,11 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .hud .golive::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #e5243b; }
 .hud .golive.behind { color: var(--dim); }
 .hud .golive.behind::before { background: #777; }
+
+/* volume: the slider slides out of the speaker button on hover, like YouTube */
+.volgrp { display: inline-flex; align-items: center; background: #0009; border: 1px solid #ffffff22; border-radius: 7px; }
+.volgrp:hover { background: #000d; border-color: #fff5; }
+.hud .volgrp button { background: transparent; border-color: transparent; }
+.volgrp .vol { width: 0; opacity: 0; margin: 0; transition: width .18s, opacity .18s, margin .18s; }
+.volgrp:hover .vol, .volgrp:focus-within .vol { width: 80px; opacity: 1; margin: 0 10px 0 2px; }
+@media (hover: none) { .volgrp .vol { width: 72px; opacity: 1; margin: 0 10px 0 2px; } }

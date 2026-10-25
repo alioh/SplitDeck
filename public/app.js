@@ -248,8 +248,7 @@ function createTile(url, opts = {}) {
         <div class="seekrow" hidden><span class="tcur">0:00</span><span class="seekwrap"><input class="seek" type="range" min="0" max="1000" step="1" value="0"><span class="seektip" hidden>0:00</span></span><span class="tdur">0:00</span></div>
         <button data-a="play" title="Play / pause">⏸</button>
         <button data-a="golive" class="golive" hidden title="Go to the live point">LIVE</button>
-        <button data-a="mute" title="Mute / unmute"></button>
-        <input class="vol" type="range" min="0" max="1" step="0.01">
+        <span class="volgrp"><button data-a="mute" title="Mute / unmute"></button><input class="vol" type="range" min="0" max="1" step="0.01"></span>
         <button data-a="solo" title="Only hear this one">Solo</button>
         <span class="grow"></span>
         <button data-a="cc" hidden title="Captions on/off">CC</button>
@@ -280,16 +279,20 @@ function createTile(url, opts = {}) {
     if (!t.dur) { tip.hidden = true; return; }
     ratio = Math.min(1, Math.max(0, ratio));
     const w = t.seek.clientWidth;
-    tip.textContent = fmt(ratio * t.dur); tip.hidden = false;
+    tip.textContent = t.live ? liveOffset((1 - ratio) * t.dur) : fmt(ratio * t.dur); tip.hidden = false;
     tip.style.left = (THUMB / 2 + ratio * (w - THUMB)) + 'px';
   };
   const ratioAt = (clientX) => { const r = t.seek.getBoundingClientRect(); return (clientX - r.left - THUMB / 2) / Math.max(1, r.width - THUMB); };
   t.seek.addEventListener('pointermove', (e) => showTip(ratioAt(e.clientX)));
   t.seek.addEventListener('pointerdown', (e) => showTip(ratioAt(e.clientX)));
   t.seek.addEventListener('pointerleave', () => { if (!t.seeking) tip.hidden = true; });
-  t.seek.oninput = () => { t.seeking = true; t.tcur.textContent = fmt((t.seek.value / 1000) * t.dur); showTip(t.seek.value / 1000); };
+  t.seek.oninput = () => {
+    t.seeking = true;
+    t.tcur.textContent = t.live ? liveOffset((1 - t.seek.value / 1000) * t.dur) : fmt((t.seek.value / 1000) * t.dur);
+    showTip(t.seek.value / 1000);
+  };
   t.seek.onchange = () => {
-    const to = (t.seek.value / 1000) * t.dur;
+    const to = (t.live ? t.winStart : 0) + (t.seek.value / 1000) * t.dur;
     if (t.video) t.video.currentTime = to;
     if (t.iframe) ytCmd(t, 'seekTo', [to, true]);
     t.seeking = false;
@@ -372,8 +375,29 @@ const fmt = (sec) => {
   return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x;
 };
 // show a seek bar only for things with a real duration (not live streams)
+// live: "-1:05" behind the live point, or "LIVE" at it
+const liveOffset = (sec) => (sec < 3 ? 'LIVE' : '-' + fmt(sec));
+// for a live stream: the part that can be rewound, from the oldest kept point to the live point
+function liveWindow(t) {
+  const v = t.video; if (!v || t.mpegts) return null; // FLV keeps catching up to live, so it cannot be rewound
+  let start = Infinity, end = 0;
+  [v.seekable, v.buffered].forEach((r) => { if (r.length) { start = Math.min(start, r.start(0)); end = Math.max(end, r.end(r.length - 1)); } });
+  if (t.hls && t.hls.liveSyncPosition) end = Math.max(t.hls.liveSyncPosition, v.currentTime); // not the buffer ahead of it
+  return end - start > 5 ? { start, end } : null;
+}
 function updateProgress(t, cur, dur) {
-  const ok = dur > 0 && isFinite(dur) && !t.live;
+  if (t.live) {
+    const w = liveWindow(t);
+    t.seekRow.hidden = !w;
+    if (!w) return;
+    t.winStart = w.start; t.dur = w.end - w.start; t.tdur.textContent = '';
+    if (!t.seeking) {
+      t.seek.value = Math.round(Math.min(1, Math.max(0, (cur - w.start) / t.dur)) * 1000);
+      t.tcur.textContent = liveOffset(w.end - cur);
+    }
+    return;
+  }
+  const ok = dur > 0 && isFinite(dur);
   t.seekRow.hidden = !ok;
   if (!ok) return;
   t.dur = dur; t.tdur.textContent = fmt(dur);
@@ -430,7 +454,7 @@ function mountVideo(t, data, i = 0) {
 
   if (src.type === 'hls') {
     if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3, maxBufferLength: 20, backBufferLength: 30 });
+      const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3, maxBufferLength: 20, backBufferLength: t.live ? 180 : 30 });
       t.hls = hls;
       hls.loadSource(src.url); hls.attachMedia(v);
       hls.on(Hls.Events.MANIFEST_PARSED, start);

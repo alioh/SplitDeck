@@ -162,11 +162,13 @@ Adding a player or using **Reset** also returns to the grid. Closing the focused
 |---|---|
 | ⏸ / ▶ | Pause or play. You can also **click the picture** to pause or play (a short ▶ / ❚❚ symbol shows in the middle). On a touch screen a tap shows the controls instead. |
 | **● LIVE** | Shown on live streams. Red when you are watching live, grey when you are behind (for example after a pause). Click it to jump to the live point. Resuming after a pause continues from where you paused. |
-| Speaker and slider | Mute and volume for this player only. |
+| Speaker and slider | Mute and volume for this player only. The volume slider slides out of the speaker button when you hover over it (on touch screens it is always shown). |
 | **Solo** | Hear only this player; everything else is muted. Click again to unmute the rest. |
-| Seek bar | Appears for recorded videos (not live). Shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. |
+| Seek bar | For recorded videos it shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. For live streams it covers the part you can rewind: drag back to watch an earlier moment, forward to catch up. It shows how far behind live you are (for example *-0:38*), or **LIVE**. |
 | **CC** | Turns captions on or off. Shown only when captions exist. |
 | **⚙** | Settings menu. |
+
+How far back a live stream can be rewound depends on the site. YouTube live streams often keep a long window. Twitch and Kick only publish the last moments, so the bar covers what SplitDeck has kept: up to about 3 minutes, counted from when you added the player. TikTok LIVEs that play as FLV keep catching up to live on their own, so they have no seek bar, only the LIVE button.
 
 ### Settings menu (⚙)
 
