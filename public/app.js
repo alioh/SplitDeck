@@ -409,7 +409,10 @@ function updateProgress(t, cur, dur) {
   if (!t.seeking) { t.seek.value = Math.round((cur / dur) * 1000); t.tcur.textContent = fmt(cur); }
 }
 
+// a live stream that ended or is offline; a new link takes its place (recorded videos that finish are kept)
+const ENDED_RE = /stream ended|not (currently )?live|offline|has ended|stream error or ended/i;
 function setStatus(t, kind, msg) {
+  t.ended = kind === 'err' && ENDED_RE.test(msg || '');
   const s = t.status;
   if (kind === 'ok') { s.hidden = true; return; }
   s.hidden = false; s.className = 'status' + (kind === 'err' ? ' err' : '');
@@ -955,9 +958,18 @@ function setupDnD(t) {
 }
 
 /* ---------------- UI wiring ---------------- */
+function replaceTile(t, u) {
+  closeChat(t); destroyMedia(t);
+  t.url = u; t.title = u; t.pref = ''; t.triedDirect = false; t.ended = false;
+  t.el.querySelector('.lnk').href = /^https?:\/\//i.test(u) ? u : 'https://' + u;
+  t.ttl.textContent = u;
+  load(t); save();
+}
 function addUrl(u) {
-  if (tiles.length >= MAX) { toast(`Maximum ${MAX} players`); return false; }
   if (focusId !== null) exitFocus(); // so the new player is visible
+  const old = tiles.find((o) => o.ended);
+  if (old) { replaceTile(old, u); toast('Replaced a stream that had ended'); return true; }
+  if (tiles.length >= MAX) { toast(`Maximum ${MAX} players`); return false; }
   // the first player gets sound; later ones start muted so streams don't talk over each other
   createTile(u, { muted: tiles.some((o) => !o.muted) });
   save();
@@ -966,9 +978,10 @@ function addUrl(u) {
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const raw = input.value.trim(); if (!raw) return;
-  if (tiles.length >= MAX) return toast(`Maximum ${MAX} players`);
+  const free = MAX - tiles.length + tiles.filter((o) => o.ended).length; // ended streams are replaced
+  if (!free) return toast(`Maximum ${MAX} players`);
   // allow several links pasted at once (whitespace / newline separated)
-  const urls = raw.split(/[\s,]+/).filter(Boolean).slice(0, MAX - tiles.length);
+  const urls = raw.split(/[\s,]+/).filter(Boolean).slice(0, free);
   input.value = '';
   urls.forEach((u) => addUrl(u));
 });

@@ -70,6 +70,7 @@ The server listens on `127.0.0.1` only, so it is not reachable from other comput
 - You can paste several links at once, separated by spaces or new lines.
 - The limit is **8 players**. The counter at the top shows how many are in use.
 - A player is created only when you add one, so with 3 links you see exactly 3 players.
+- If a live stream has ended or is offline, the next link you add **replaces it** in the same place instead of adding a new player (a short note says so). Recorded videos that finish are not replaced.
 
 The first player you add has sound. Later players start muted so they do not talk over each other. Change this with each player's volume controls.
 
