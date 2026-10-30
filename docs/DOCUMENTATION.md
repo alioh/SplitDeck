@@ -141,7 +141,18 @@ Hover a player to show its controls (on a touch screen, tap it). They fade after
 | **⟳** | Reloads the player. |
 | **⛶** | Fullscreen for this player. Double-clicking the video does the same. |
 | **▣** | **Focus:** shows only this player, full size, with sound. See [Focusing one player](#focusing-one-player). |
+| **💬** | Shows or hides the chat. See [Chat](#chat). |
 | **✕** | Closes the player. |
+
+### Chat
+
+Twitch and Kick streams, and YouTube live streams, have a **💬** button in the player's top bar. Chat is always hidden until you click it, and it is not reopened after a reload.
+
+- Click **💬** to open the chat in a floating window beside the player. Drag its title bar to move it and its bottom-right corner to resize it. **✕** or **💬** again hides it. Each player has its own chat window.
+- To write in chat, sign in to that site inside the chat window, as you would on the site.
+- **Twitch** only allows its chat inside pages opened as `localhost`. When SplitDeck is opened another way (for example by a Raspberry Pi's address), **💬** opens Twitch's own chat in a small separate window instead. If nothing opens, allow pop-ups for SplitDeck in your browser.
+- A player in fullscreen covers the chat window; leave fullscreen or use **▣ Focus** to watch with chat.
+- TikTok, X and Facebook do not offer a chat that can be shown outside their own sites.
 
 ### Focusing one player
 

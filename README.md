@@ -15,6 +15,7 @@ Works with YouTube, TikTok LIVE, Twitch, Kick, X and Facebook (best effort), and
 - Focus one player full size with sound while the others keep running muted, then go back to the grid.
 - Drag the dividers between players to resize them.
 - Per-player volume, mute and solo, plus a toolbar with speed, quality and captions.
+- Show a stream's chat in a floating window when you want it (Twitch, Kick, YouTube live).
 - A built-in "Live now" browser with search, language and category filters.
 - A link finder: paste a web page and list the `.m3u8`, `.mp4` and `.flv` links in its source.
 - Sign-ins for restricted streams (TikTok 18+ LIVEs, age-restricted YouTube, Twitch subscriber-only), kept only in your browser.

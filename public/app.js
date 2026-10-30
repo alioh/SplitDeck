@@ -242,6 +242,7 @@ function createTile(url, opts = {}) {
         <button data-a="reload" title="Reload">⟳</button>
         <button data-a="fs" title="Fullscreen">⛶</button>
         <button data-a="focus" title="Show only this player, full size, with sound (Esc to go back)">▣</button>
+        <button data-a="chat" hidden title="Show / hide chat">💬</button>
         <button data-a="close" title="Close">✕</button>
       </div>
       <div class="hud bot">
@@ -348,7 +349,8 @@ async function load(t, direct = false) {
   } catch (e) { return setStatus(t, 'err', e.message); }
   if (!tiles.includes(t)) return;
   t.kind = data.type; t.title = data.title || t.url; t.live = !!data.live; t.source = data.source || '';
-  t.native = !!data.native; t.captions = data.captions || []; t.capIdx = -1;
+  t.native = !!data.native; t.captions = data.captions || []; t.capIdx = -1; t.vid = data.id || '';
+  updateChatBtn(t);
   t.el.querySelector('[data-a=cc]').hidden = !t.captions.length; t.el.querySelector('[data-a=cc]').classList.remove('on');
   t.ttl.innerHTML = `${t.live ? '<span class="live">LIVE</span> ' : ''}<small>${esc(prettySource(t.source))}</small>${esc(t.title)}`;
   t.paused = false; setPlayIcon(t); t.ytDur = 0; t.ytCur = 0;
@@ -504,6 +506,8 @@ function mountYoutube(t, id) {
     }
     if (d.info && d.info.videoData && d.info.videoData.isLive !== undefined) {
       t.live = !!d.info.videoData.isLive; t.liveBtn.hidden = !t.live; t.ytDvr = t.live && d.info.videoData.allowLiveDvr !== false;
+      if (d.info.videoData.video_id) t.vid = d.info.videoData.video_id;
+      updateChatBtn(t);
     }
     if (d.info && (d.info.duration !== undefined || d.info.currentTime !== undefined)) {
       if (d.info.duration !== undefined) t.ytDur = d.info.duration;
@@ -584,6 +588,7 @@ function updateMuteAll() {
 function action(t, a) {
   switch (a) {
     case 'close': return removeTile(t);
+    case 'chat': return toggleChat(t);
     case 'reload': return load(t);
     case 'fit': t.fill = !t.fill; t.box.classList.toggle('fill', t.fill); return save();
     case 'fs':
@@ -779,10 +784,77 @@ function flashPlay(t) {
   f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
 }
 
+/* ---------------- chat: a floating window per player, hidden until its 💬 button is clicked ---------------- */
+// Twitch only allows its chat inside pages on localhost (not an IP address, and not plain http on other names),
+// so elsewhere its own popout chat opens as a separate small window.
+const onLocalhost = location.hostname === 'localhost';
+function chatSource(t) {
+  let u; try { u = new URL(/^https?:\/\//i.test(t.url) ? t.url : 'https://' + t.url); } catch { return null; }
+  const host = u.hostname.replace(/^(www|m)\./, ''), seg = u.pathname.split('/').filter(Boolean);
+  if (host === 'twitch.tv' && seg[0] && !/^(videos|directory|clip)$/.test(seg[0]) && seg.length === 1) {
+    const ch = encodeURIComponent(seg[0].toLowerCase());
+    return onLocalhost ? { name: 'Twitch', embed: 'https://www.twitch.tv/embed/' + ch + '/chat?parent=localhost&darkpopout' }
+      : { name: 'Twitch', popout: 'https://www.twitch.tv/popout/' + ch + '/chat?popout=' };
+  }
+  if (host === 'kick.com' && seg.length === 1) return { name: 'Kick', embed: 'https://kick.com/popout/' + encodeURIComponent(seg[0].toLowerCase()) + '/chat' };
+  if (/(^|\.)(youtube\.com|youtu\.be)$/.test(host) && t.live && t.vid) {
+    return { name: 'YouTube', embed: 'https://www.youtube.com/live_chat?v=' + encodeURIComponent(t.vid) + '&embed_domain=' + encodeURIComponent(location.hostname) + '&dark_theme=1' };
+  }
+  return null;
+}
+function updateChatBtn(t) {
+  const b = t.el.querySelector('[data-a=chat]'), src = chatSource(t);
+  b.hidden = !src;
+  if (!src) closeChat(t);
+}
+function closeChat(t) {
+  if (t.chat) { t.chat.remove(); t.chat = null; }
+  if (t.chatWin) { try { t.chatWin.close(); } catch {} t.chatWin = null; }
+  const b = t.el && t.el.querySelector('[data-a=chat]'); if (b) b.classList.remove('on');
+}
+function toggleChat(t) {
+  if (t.chat || (t.chatWin && !t.chatWin.closed)) return closeChat(t);
+  const src = chatSource(t); if (!src) return;
+  if (src.popout) {
+    t.chatWin = window.open(src.popout, 'splitdeck-chat-' + t.id, 'width=360,height=640');
+    if (!t.chatWin) return toast('The browser blocked the chat window. Allow pop-ups for SplitDeck and try again.');
+    t.el.querySelector('[data-a=chat]').classList.add('on');
+    return;
+  }
+  const c = document.createElement('div');
+  c.className = 'chatpop';
+  c.innerHTML = '<div class="chathead"><span>💬 ' + esc(src.name) + ' chat · ' + esc(t.title || '') + '</span><button title="Hide chat">✕</button></div><iframe allow="clipboard-write" referrerpolicy="origin"></iframe>';
+  c.querySelector('iframe').src = src.embed;
+  c.querySelector('button').onclick = () => closeChat(t);
+  // start beside the player, inside the window
+  const r = t.el.getBoundingClientRect(), W = Math.min(340, innerWidth - 16), H = Math.min(520, innerHeight - 16);
+  const x = r.right + W + 8 <= innerWidth ? r.right + 8 : Math.max(8, r.right - W - 8);
+  c.style.cssText = 'left:' + x + 'px;top:' + Math.max(8, Math.min(r.top, innerHeight - H - 8)) + 'px;width:' + W + 'px;height:' + H + 'px';
+  dragChat(c);
+  document.body.appendChild(c);
+  t.chat = c;
+  t.el.querySelector('[data-a=chat]').classList.add('on');
+}
+// move the chat window by its title bar (pointer capture keeps the drag working over the chat page)
+function dragChat(c) {
+  const head = c.querySelector('.chathead');
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    const sx = e.clientX - c.offsetLeft, sy = e.clientY - c.offsetTop;
+    try { head.setPointerCapture(e.pointerId); } catch {}
+    c.classList.add('moving');
+    const move = (ev) => {
+      c.style.left = Math.min(innerWidth - 60, Math.max(0, ev.clientX - sx)) + 'px';
+      c.style.top = Math.min(innerHeight - 30, Math.max(0, ev.clientY - sy)) + 'px';
+    };
+    const up = () => { c.classList.remove('moving'); head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up); };
+    head.addEventListener('pointermove', move); head.addEventListener('pointerup', up); head.addEventListener('pointercancel', up);
+  });
+}
 function removeTile(t) {
   if (focusId === t.id) exitFocus(); // closing the focused player returns to the grid
   const i = tiles.indexOf(t); if (i < 0) return;
-  destroyMedia(t); t.el.remove(); tiles.splice(i, 1);
+  closeChat(t); destroyMedia(t); t.el.remove(); tiles.splice(i, 1);
   applyLayout(); updateMuteAll(); save();
 }
 function swap(i, j) {

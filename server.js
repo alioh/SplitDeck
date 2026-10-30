@@ -260,7 +260,7 @@ async function resolveYoutubeNative(u) {
     const f = pickVtt(arr); if (f) caps.push({ code, name: (f.name || code).replace(/\s*\(.*\)$/, '') + ' (auto)', auto: true, url: proxyUrl(sid, f.url) });
   });
   const url = '/master?id=' + mid;
-  return { type: 'hls', url, sources: [{ type: 'hls', url }], title: info.title || 'YouTube', live: !!info.is_live, source: 'YouTube', native: true, captions: caps.slice(0, 40) };
+  return { type: 'hls', url, sources: [{ type: 'hls', url }], title: info.title || 'YouTube', live: !!info.is_live, source: 'YouTube', native: true, id: info.id, captions: caps.slice(0, 40) };
 }
 
 // Facebook rarely lets yt-dlp in without a login, so when extraction fails we fall back to Facebook's own

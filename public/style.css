@@ -364,3 +364,12 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .volgrp .vol { width: 0; opacity: 0; margin: 0; transition: width .18s, opacity .18s, margin .18s; }
 .volgrp:hover .vol, .volgrp:focus-within .vol { width: 80px; opacity: 1; margin: 0 10px 0 2px; }
 @media (hover: none) { .volgrp .vol { width: 72px; opacity: 1; margin: 0 10px 0 2px; } }
+
+/* chat: floating window, moved by its title bar and resized from the corner */
+.chatpop { position: fixed; z-index: 40; display: flex; flex-direction: column; min-width: 240px; min-height: 240px; max-width: calc(100vw - 8px); max-height: calc(100vh - 8px); background: #0e0e13; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px #000a; overflow: hidden; resize: both; }
+.chathead { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); cursor: move; touch-action: none; user-select: none; font-size: 12px; }
+.chathead span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chathead button { padding: 2px 8px; }
+.chatpop iframe { flex: 1; width: 100%; border: 0; background: #0e0e13; }
+.chatpop.moving iframe { pointer-events: none; }
+.hud button[data-a=chat].on { background: var(--accent); border-color: var(--accent); }
