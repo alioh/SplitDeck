@@ -540,7 +540,13 @@ function ytCmd(t, func, args = []) {
 
 /* ---------------- audio ---------------- */
 function applyAudio(t) {
-  if (t.video) { t.video.muted = t.muted; t.video.volume = t.vol; }
+  if (t.video) {
+    const v = t.video, wasMuted = v.muted;
+    v.muted = t.muted; v.volume = t.vol;
+    // Chrome can play a stream's audio garbled ("robotic") after unmuting until the player reloads; jumping in place
+    // to the current position restarts the audio cleanly without a reload
+    if (wasMuted && !t.muted && !v.paused && v.readyState >= 2) { try { v.currentTime = v.currentTime; } catch {} }
+  }
   if (t.iframe) { ytCmd(t, 'setVolume', [Math.round(t.vol * 100)]); ytCmd(t, t.muted ? 'mute' : 'unMute'); }
 }
 function applyAudioUI(t) {
