@@ -86,6 +86,7 @@ The first player you add has sound. Later players start muted so they do not tal
 | Counter (`3 / 8`) | Players in use. |
 | **Layout** | Choose an arrangement ([section 5](#5-layouts-and-resizing)). |
 | **Mute all** / **Unmute all** (speaker) | Mutes every player. When everything is muted the button turns red and says **Unmute all**, which turns the sound back on for every player. |
+| **Close all** (✕) | Closes every player after asking you to confirm. Layouts and divider sizes are kept; **Reset** clears those too. |
 | **Reset** | Closes everything and starts fresh ([section 9](#9-saved-data-and-reset)). |
 | **Hide UI** | Hides the top bar so only video remains. |
 

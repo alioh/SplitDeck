@@ -993,6 +993,12 @@ form.addEventListener('submit', async (e) => {
 });
 layoutBtn.onclick = (e) => { e.stopPropagation(); layoutPop.hidden = !layoutPop.hidden; };
 document.addEventListener('click', (e) => { if (!layoutPop.contains(e.target)) layoutPop.hidden = true; });
+// closes the players but keeps layouts and divider sizes (Reset clears those too)
+$('#closeAllBtn').onclick = () => {
+  if (!tiles.length || !confirm('Close all players?')) return;
+  if (focusId !== null) exitFocus();
+  tiles.slice().forEach(removeTile);
+};
 $('#muteAllBtn').onclick = () => {
   const mute = !tiles.every((t) => t.muted);
   tiles.forEach((t) => { t.muted = mute; if (!mute && t.vol === 0) t.vol = 0.6; applyAudio(t); applyAudioUI(t); });
@@ -1484,7 +1490,7 @@ fetch('/api/config').then((r) => r.json()).then((c) => { signinAllowed = !!c.sig
 $('#resetBtn').onclick = () => {
   if (tiles.length && !confirm('Close all streams and start fresh?')) return;
   if (focusId !== null) exitFocus();
-  tiles.slice().forEach((t) => { destroyMedia(t); t.el.remove(); });
+  tiles.slice().forEach((t) => { closeChat(t); destroyMedia(t); t.el.remove(); });
   tiles.length = 0;
   Object.keys(layoutPref).forEach((k) => delete layoutPref[k]);
   Object.keys(ratioStore).forEach((k) => delete ratioStore[k]);
