@@ -10,7 +10,7 @@ button:hover { background: #2b2b38; }
 
 .topbar { position: fixed; inset: 0 0 auto 0; min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 30; transition: transform .2s; }
 .brand { font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.dot { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+.brand .logo { width: 22px; height: 22px; display: block; flex: none; }
 .addform { display: flex; flex: 1 1 520px; max-width: 760px; }
 .addform input { flex: 1; min-width: 0; background: #0e0e13; border: 1px solid var(--line); border-right: 0; border-radius: 7px 0 0 7px; padding: 7px 11px; outline: none; }
 .addform input:focus { border-color: var(--accent); }

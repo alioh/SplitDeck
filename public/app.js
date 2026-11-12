@@ -1083,6 +1083,21 @@ document.addEventListener('keydown', (e) => {
     setImmersive(false); openLive(false); openInspect(false); openSignin(false);
   }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
+  // single-letter shortcuts: not while typing somewhere, and not with Ctrl/Cmd/Alt (so Ctrl+R still reloads the page)
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'm') { e.preventDefault(); if (tiles.length) $('#muteAllBtn').click(); }
+  else if (k === 'f') { // the whole page full screen, like F11
+    e.preventDefault();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+  } else if (k === 'r') { e.preventDefault(); if (tiles.length) { tiles.forEach((t) => load(t)); toast('Reloading all players'); } }
+  else if (k === 'l') {
+    e.preventDefault();
+    if (layoutBtn.disabled) return toast('Layouts need 2 or more players');
+    setImmersive(false); layoutPop.hidden = !layoutPop.hidden;
+  }
 });
 const topbar = $('#topbar');
 $('#edge').addEventListener('mouseenter', () => { topbar.classList.add('reveal'); document.body.classList.add('revealed'); });
