@@ -97,8 +97,10 @@ body.resizing .box iframe, body.resizing .box video { pointer-events: none; }
 body.rs-h, body.rs-h * { cursor: col-resize !important; }
 body.rs-v, body.rs-v * { cursor: row-resize !important; }
 /* "Show UI" button, only while the bar is hidden */
-#showUiBtn { display: none; position: fixed; top: 10px; right: 10px; z-index: 45; background: #000a; border-color: #ffffff30; opacity: .35; transition: opacity .15s; }
-#showUiBtn:hover { opacity: 1; background: #000d; }
+#showUiBtn { display: none; position: fixed; top: 10px; right: 10px; z-index: 45; background: #000a; border-color: #ffffff30; opacity: 0; transition: opacity .25s; }
+/* hidden until the mouse moves (or the screen is touched), then fades out again */
+body.uiwake #showUiBtn { opacity: .55; }
+#showUiBtn:hover, body.uiwake #showUiBtn:hover { opacity: 1; background: #000d; }
 body.immersive #showUiBtn { display: block; }
 body.revealed #showUiBtn { display: none; }
 #edge { height: 20px; }
@@ -263,7 +265,7 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
   .popover { position: fixed; left: 10px; right: 10px; top: var(--top); width: auto; max-height: 60vh; grid-template-columns: repeat(3, 1fr); }
   .livepanel { width: 100%; max-width: none; border-left: 0; }
   .lthumb { width: 104px; }
-  #showUiBtn { top: max(10px, env(safe-area-inset-top)); right: 10px; min-height: 40px; opacity: .55; }
+  #showUiBtn { top: max(10px, env(safe-area-inset-top)); right: 10px; min-height: 40px; }
   .empty h1 { font-size: 21px; } .empty { padding: 0 24px; }
   .toast { bottom: max(18px, env(safe-area-inset-bottom)); }
   .cfgmenu { right: 6px; bottom: 60px; }

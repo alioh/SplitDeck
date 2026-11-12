@@ -94,7 +94,7 @@ The first player you add has sound. Later players start muted so they do not tal
 
 Click **Hide UI** (or press **H**) to hide the top bar. To bring it back:
 
-- click the faint **Show UI** button in the top-right corner, or
+- move the mouse (or tap the screen) and click the **Show UI** button that appears in the top-right corner; it fades out again after a few seconds without movement, or
 - press **H** or **Esc**, or
 - move the mouse to the very top edge of the window, or
 - press **/** (also focuses the link box).

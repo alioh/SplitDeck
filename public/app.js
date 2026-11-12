@@ -1007,6 +1007,16 @@ $('#muteAllBtn').onclick = () => {
 function setImmersive(on) { document.body.classList.toggle('immersive', on); if (!on) { topbar.classList.remove('reveal'); document.body.classList.remove('revealed'); } }
 $('#immersiveBtn').onclick = () => setImmersive(true);
 $('#showUiBtn').onclick = () => setImmersive(false);
+// with the bar hidden, "Show UI" appears only while the mouse moves (or on a tap) and hides again ~2.5s later
+let wakeT;
+const wakeUi = () => {
+  if (!document.body.classList.contains('immersive')) return;
+  document.body.classList.add('uiwake'); clearTimeout(wakeT);
+  const sleep = () => { if ($('#showUiBtn').matches(':hover')) wakeT = setTimeout(sleep, 1000); else document.body.classList.remove('uiwake'); };
+  wakeT = setTimeout(sleep, 2500);
+};
+document.addEventListener('pointermove', wakeUi, { passive: true });
+document.addEventListener('pointerdown', wakeUi, { passive: true });
 document.addEventListener('keydown', (e) => {
   if (e.target === input) { if (e.key === 'Escape') input.blur(); return; }
   if (e.key === 'h' || e.key === 'H') setImmersive(!document.body.classList.contains('immersive'));
