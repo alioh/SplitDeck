@@ -85,7 +85,7 @@ The first player you add has sound. Later players start muted so they do not tal
 | **Live** | Opens the Live browser ([section 7](#7-the-live-browser)). |
 | Counter (`3 / 8`) | Players in use. |
 | **Layout** | Choose an arrangement ([section 5](#5-layouts-and-resizing)). |
-| **Mute all** / **Unmute all** (speaker) | Mutes every player. When everything is muted the button turns red and says **Unmute all**, which turns the sound back on for every player. |
+| **Mute all** / **Unmute all** (speaker) | Mutes every player. When everything is muted the button turns red and says **Unmute all**, which turns the sound back on only for the players that had it before you muted. If they were all muted already, it turns on every player. |
 | **Close all** (✕) | Closes every player after asking you to confirm. Layouts and divider sizes are kept; **Reset** clears those too. |
 | **Reset** | Closes everything and starts fresh ([section 9](#9-saved-data-and-reset)). |
 | **Hide UI** | Hides the top bar so only video remains. |
@@ -397,7 +397,7 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | **H** | Hide or show the top bar. |
 | **Esc** | Go back to the grid from a focused player; otherwise show the top bar and close the open panel. |
 | **/** | Show the top bar and focus the link box. |
-| **M** | Mute all players, or unmute them all (same as **Mute all**). |
+| **M** | Mute all players; press again to bring back the sound of the ones that had it (same as **Mute all** / **Unmute all**). |
 | **F** | Make the whole page full screen, like F11; press again to leave. |
 | **R** | Reload every player (same as **⟳** on each one). **Ctrl+R** still reloads the page. |
 | **L** | Open the layout options (needs 2 or more players). |

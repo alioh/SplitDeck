@@ -1056,9 +1056,19 @@ $('#closeAllBtn').onclick = () => {
   if (focusId !== null) exitFocus();
   tiles.slice().forEach(removeTile);
 };
+// Mute all remembers which players had sound, and Unmute all brings back only those
+// (or every player when nothing was remembered, e.g. they were all muted already)
+let unmuteIds = null;
 $('#muteAllBtn').onclick = () => {
   const mute = !tiles.every((t) => t.muted);
-  tiles.forEach((t) => { t.muted = mute; if (!mute && t.vol === 0) t.vol = 0.6; applyAudio(t); applyAudioUI(t); });
+  if (mute) unmuteIds = new Set(tiles.filter((t) => !t.muted).map((t) => t.id));
+  const back = !mute && unmuteIds && tiles.some((t) => unmuteIds.has(t.id)) ? unmuteIds : null;
+  tiles.forEach((t) => {
+    t.muted = mute || (back ? !back.has(t.id) : false);
+    if (!t.muted && t.vol === 0) t.vol = 0.6;
+    applyAudio(t); applyAudioUI(t);
+  });
+  if (!mute) unmuteIds = null;
   save();
 };
 function setImmersive(on) { document.body.classList.toggle('immersive', on); if (!on) { topbar.classList.remove('reveal'); document.body.classList.remove('revealed'); } }
