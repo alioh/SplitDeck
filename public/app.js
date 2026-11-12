@@ -1098,6 +1098,7 @@ document.addEventListener('keydown', (e) => {
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
   const k = e.key.toLowerCase();
   if (k === 'm') { e.preventDefault(); if (tiles.length) $('#muteAllBtn').click(); }
+  else if (k === 'c') { e.preventDefault(); $('#closeAllBtn').click(); } // asks first, like the button
   else if (k === 'f') { // the whole page full screen, like F11
     e.preventDefault();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});

@@ -401,6 +401,7 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | **F** | Make the whole page full screen, like F11; press again to leave. |
 | **R** | Reload every player (same as **⟳** on each one). **Ctrl+R** still reloads the page. |
 | **L** | Open the layout options (needs 2 or more players). |
+| **C** | Close all players (asks first, same as **Close all**). |
 | **Enter** (in the link box) | Add the link. |
 
 The letter shortcuts do nothing while you type in a box. They also don't work right after you click inside a YouTube or other embedded player, because the player then has the keyboard; click an empty spot or the top bar first.
