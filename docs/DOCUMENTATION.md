@@ -341,9 +341,11 @@ TikTok does not offer a public list of who is live. Instead, type a username (wi
 
 ## 8. YouTube: clean player and YouTube's player
 
-By default, YouTube links play in SplitDeck's **clean player**. It has no logo, no suggested-video box, no annotations and no burned-in captions, and it provides the full toolbar from [section 6](#6-player-controls): captions, speed, quality up to 1080p, and audio tracks.
+By default, YouTube links play in **YouTube's own (embedded) player**, because it starts faster. If a video cannot be embedded (the uploader turned that off), SplitDeck switches to the clean player by itself.
 
-If the clean player cannot load a video, SplitDeck falls back automatically to YouTube's embedded player. You can also switch manually: **⚙ → Player**. In YouTube's player, SplitDeck's menu offers:
+Switch any time with **⚙ → Player**. The **clean player** has no logo, no suggested-video box, no annotations and no burned-in captions, and it provides the full toolbar from [section 6](#6-player-controls): captions, speed, **quality** up to 1080p, and audio tracks. It takes a few seconds longer to start, because yt-dlp has to look the video up first. Its quality list highlights your pick at once; the picture changes a moment later.
+
+In YouTube's player, SplitDeck's menu offers:
 
 - **Volume and mute**, **speed**, the seek bar and the **● LIVE** button on live streams.
 - **Captions**: Off, or any language the video has. YouTube draws them itself, so the caption style below does not apply. Instead there is **Translate captions** (into your browser's languages and English) and **Caption size**, which is remembered in this browser.
@@ -401,7 +403,7 @@ Data is stored per browser and per address. Using a different browser, or a diff
 
 | Site | How it is handled |
 |---|---|
-| YouTube | Clean player via yt-dlp; embedded player as a fallback. |
+| YouTube | YouTube's embedded player by default; the clean player (via yt-dlp) from **⚙ → Player**, or when a video cannot be embedded. |
 | TikTok LIVE | Read directly from TikTok's web API (yt-dlp as a fallback). |
 | Twitch | yt-dlp. |
 | Kick | yt-dlp. |
@@ -529,7 +531,7 @@ SplitDeck/
 | `yt-dlp` not found | Run `npm run setup`, or set `YTDLP` to its path. |
 | Kick lists say "Kick blocked the request" | Make sure `curl` is installed and on your `PATH`. If Kick changed its protection, this may need a code update. |
 | No sound | Players after the first start muted. Use a player's speaker, **Unmute all**, or **Solo**. Browsers may also block sound until you click the page. |
-| A YouTube video shows YouTube's overlays | The clean player could not load it and the embed was used. Try **⟳**, or update yt-dlp. |
+| A YouTube video shows YouTube's overlays | YouTube's own player is the default. For a player without them, choose **⚙ → Player → Clean player**. |
 | Captions button missing | The video has no captions. |
 | A Facebook link shows "Video unavailable" | The video is private, removed or not public. The embedded player can only show public videos. |
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |

@@ -343,8 +343,8 @@ async function load(t, direct = false) {
   try {
     const cookies = signinFor(t.url);
     const r = cookies
-      ? await fetch('/api/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: t.url, embed: t.pref === 'embed', cookies }) })
-      : await fetch('/api/resolve?url=' + encodeURIComponent(t.url) + (t.pref === 'embed' ? '&embed=1' : ''));
+      ? await fetch('/api/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: t.url, embed: t.pref !== 'clean', cookies }) })
+      : await fetch('/api/resolve?url=' + encodeURIComponent(t.url) + (t.pref !== 'clean' ? '&embed=1' : ''));
     data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Could not resolve');
   } catch (e) { return setStatus(t, 'err', e.message); }
@@ -368,7 +368,7 @@ function destroyMedia(t) {
   if (t.mpegts) { try { t.mpegts.destroy(); } catch {} t.mpegts = null; }
   if (t.ytTimer) { clearInterval(t.ytTimer); t.ytTimer = null; }
   if (t.onMsg) { window.removeEventListener('message', t.onMsg); t.onMsg = null; }
-  t.video = null; t.iframe = null; t.ready = false; t.ytCap = null; t.ytCcOn = false; t.box.classList.remove('ytpaused', 'ytended'); t.dur = 0; t.seekRow.hidden = true; closeCfg(t);
+  t.video = null; t.iframe = null; t.ready = false; t.qPick = undefined; t.ytCap = null; t.ytCcOn = false; t.box.classList.remove('ytpaused', 'ytended'); t.dur = 0; t.seekRow.hidden = true; closeCfg(t);
   t.media.innerHTML = '';
 }
 
@@ -467,6 +467,7 @@ function mountVideo(t, data, i = 0) {
       t.hls = hls;
       hls.loadSource(src.url); hls.attachMedia(v);
       hls.on(Hls.Events.MANIFEST_PARSED, start);
+      hls.on(Hls.Events.LEVEL_SWITCHED, () => { if (t.menu && t.hls === hls) renderCfg(t); });
       let retries = 0;
       hls.on(Hls.Events.ERROR, (_, d) => {
         if (!d.fatal) return;
@@ -512,6 +513,9 @@ function mountYoutube(t, id) {
     if (d.info && d.info.videoData && d.info.videoData.isLive !== undefined) {
       t.live = !!d.info.videoData.isLive; t.liveBtn.hidden = !t.live; t.ytDvr = t.live && d.info.videoData.allowLiveDvr !== false;
       if (d.info.videoData.video_id) t.vid = d.info.videoData.video_id;
+      // the embed is resolved without asking yt-dlp, so the real title comes from the player itself
+      const vt = d.info.videoData.title;
+      if (vt && vt !== t.title) { t.title = vt; t.ttl.innerHTML = `${t.live ? '<span class="live">LIVE</span> ' : ''}<small>${esc(prettySource(t.source))}</small>${esc(vt)}`; save(); }
       updateChatBtn(t);
     }
     if (d.info && (d.info.duration !== undefined || d.info.currentTime !== undefined)) {
@@ -529,7 +533,7 @@ function mountYoutube(t, id) {
     }
     if (d.event === 'onError') {
       // embedding disabled by the uploader: fall back to extracting the raw stream
-      if (!t.triedDirect) { t.triedDirect = true; t.pref = ''; load(t, true); }
+      if (!t.triedDirect) { t.triedDirect = true; t.pref = 'clean'; load(t, true); }
       else setStatus(t, 'err', 'YouTube cannot play this video');
     }
   };
@@ -773,8 +777,10 @@ function renderCfg(t) {
   if (h && h.levels.length > 1) {
     const lv = h.levels.map((l, i) => ({ i, h: l.height })).filter((x) => x.h).sort((a, b) => b.h - a.h);
     const cur = h.autoLevelEnabled && h.currentLevel >= 0 && h.levels[h.currentLevel] ? ' (' + h.levels[h.currentLevel].height + 'p)' : '';
-    sec('Quality', [{ label: 'Auto' + cur, on: h.autoLevelEnabled, fn: () => { h.currentLevel = -1; } },
-      ...lv.map((x) => ({ label: x.h + 'p', on: !h.autoLevelEnabled && h.currentLevel === x.i, fn: () => { h.currentLevel = x.i; } }))]);
+    // highlight the level that was picked: hls.currentLevel keeps naming the old one until the switch has finished
+    const pick = h.autoLevelEnabled ? -1 : (t.qPick !== undefined && t.qPick >= 0 ? t.qPick : h.currentLevel);
+    sec('Quality', [{ label: 'Auto' + cur, on: pick < 0, fn: () => { t.qPick = -1; h.currentLevel = -1; } },
+      ...lv.map((x) => ({ label: x.h + 'p', on: pick === x.i, fn: () => { t.qPick = x.i; h.currentLevel = x.i; } }))]);
   }
   if (t.iframe && isYt) ytCaptionMenu(t, sec);
   else if (t.captions && t.captions.length) {
@@ -794,7 +800,7 @@ function renderCfg(t) {
   }
   if (h && h.audioTracks && h.audioTracks.length > 1) sec('Audio', h.audioTracks.map((a, i) => ({ label: a.name || a.lang || 'Track ' + (i + 1), on: h.audioTrack === i, fn: () => { h.audioTrack = i; } })));
   if (t.native || isYt) sec('Player', [
-    { label: 'Clean player', on: !isYt, fn: () => { t.pref = ''; t.triedDirect = false; load(t); } },
+    { label: 'Clean player', on: !isYt, fn: () => { t.pref = 'clean'; t.triedDirect = false; load(t); } },
     { label: "YouTube's own player", on: isYt, fn: () => { t.pref = 'embed'; load(t); } },
   ]);
   if (!m.children.length) m.innerHTML = '<div class="cfgt">No options for this stream</div>';
