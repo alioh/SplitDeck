@@ -178,7 +178,7 @@ Adding a player or using **Reset** also returns to the grid. Closing the focused
 | Speaker and slider | Mute and volume for this player only. The volume slider slides out of the speaker button when you hover over it (on touch screens it is always shown). |
 | **Solo** | Hear only this player; everything else is muted. Click again to unmute the rest. |
 | Seek bar | For recorded videos it shows time played and length; drag to seek. **Hover over it to see the time at that point**, and while dragging it shows the time you will jump to. For live streams it covers the part you can rewind: drag back to watch an earlier moment, forward to catch up. It shows how far behind live you are (for example *-0:38*), or **LIVE**, and keeps updating while paused, so you can move back or forward before you press play. It also appears in YouTube's own player when the stream allows rewinding. |
-| **CC** | Turns captions on or off. Shown only when captions exist. |
+| **CC** | Turns captions on or off. Shown only when captions exist (always shown in YouTube's own player). |
 | **⚙** | Settings menu. |
 
 How far back a live stream can be rewound depends on the site. YouTube live streams often keep a long window. Twitch and Kick only publish the last moments, so the bar covers what SplitDeck has kept: up to about 3 minutes, counted from when you added the player. TikTok LIVEs that play as FLV keep catching up to live on their own, so they have no seek bar, only the LIVE button.
@@ -343,7 +343,13 @@ TikTok does not offer a public list of who is live. Instead, type a username (wi
 
 By default, YouTube links play in SplitDeck's **clean player**. It has no logo, no suggested-video box, no annotations and no burned-in captions, and it provides the full toolbar from [section 6](#6-player-controls): captions, speed, quality up to 1080p, and audio tracks.
 
-If the clean player cannot load a video, SplitDeck falls back automatically to YouTube's embedded player. You can also switch manually: **⚙ → Player**. YouTube's player has its own limits (overlays you cannot remove) and only speed is available from SplitDeck's menu. The **● LIVE** button still works there on live streams.
+If the clean player cannot load a video, SplitDeck falls back automatically to YouTube's embedded player. You can also switch manually: **⚙ → Player**. In YouTube's player, SplitDeck's menu offers:
+
+- **Volume and mute**, **speed**, the seek bar and the **● LIVE** button on live streams.
+- **Captions**: Off, or any language the video has. YouTube draws them itself, so the caption style below does not apply. Instead there is **Translate captions** (into your browser's languages and English) and **Caption size**, which is remembered in this browser.
+- No **quality** choice: YouTube removed that from its embedded player, so it picks the quality from the player size and your connection.
+
+When paused, YouTube's **More videos** strip is covered, and when a video ends its screen of other videos is replaced by *Video ended*; press ▶ to watch it again. The captions part uses commands YouTube does not document, so a YouTube update could break it.
 
 Captions in the clean player include every language the uploader provided, plus the automatic captions in the video's own language. Captions are off until you turn them on.
 
@@ -372,6 +378,7 @@ SplitDeck remembers your session in the browser's `localStorage`:
 | `splitdeck.lang` | Last language filter in the Live browser. |
 | `splitdeck.signin` | Sign-ins saved under **🔑 Sign-ins**. |
 | `splitdeck.capstyle` | Caption style. |
+| `splitdeck.ytcapsize` | Caption size in YouTube's own player. |
 | `splitdeck.follownotify` | Whether to show a note when a followed channel goes live. |
 | `splitdeck.followoff` | Platforms switched off in the Following tab. |
 
@@ -523,7 +530,7 @@ SplitDeck/
 | Kick lists say "Kick blocked the request" | Make sure `curl` is installed and on your `PATH`. If Kick changed its protection, this may need a code update. |
 | No sound | Players after the first start muted. Use a player's speaker, **Unmute all**, or **Solo**. Browsers may also block sound until you click the page. |
 | A YouTube video shows YouTube's overlays | The clean player could not load it and the embed was used. Try **⟳**, or update yt-dlp. |
-| Captions button missing | The video has no captions, or the player is YouTube's embed. |
+| Captions button missing | The video has no captions. |
 | A Facebook link shows "Video unavailable" | The video is private, removed or not public. The embedded player can only show public videos. |
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
 | The link finder shows no results | The page probably loads its video with JavaScript, or protects it. The finder only reads source text. Try **Try the page link itself**. |

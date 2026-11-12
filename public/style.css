@@ -200,6 +200,11 @@ html { color-scheme: dark; }
 body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
 .box { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .shield { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+/* YouTube's own player: hide the "More videos" strip it shows when paused, and its end screen of other videos */
+.ytcover { display: none; position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; pointer-events: auto; }
+.box.ytpaused .ytcover { display: block; height: clamp(56px, 16%, 88px); background: linear-gradient(to bottom, transparent, #000 45%); }
+.box.ytended .ytcover { display: flex; align-items: center; justify-content: center; top: 0; background: #000; color: #aaa; font-size: 14px; }
+.box.ytended .ytcover::after { content: 'Video ended · ▶ to play again'; }
 .topbar .ic { display: none; }
 .hud.top [data-a=main] { margin-left: auto; }
 .topbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }

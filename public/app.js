@@ -231,6 +231,7 @@ function createTile(url, opts = {}) {
   el.innerHTML = `
     <div class="box">
       <div class="media"></div>
+      <div class="ytcover"></div>
       <div class="shield"></div>
       <div class="status"><div class="spin"></div><div class="msg">Resolving stream…</div></div>
       <div class="hud top">
@@ -367,7 +368,7 @@ function destroyMedia(t) {
   if (t.mpegts) { try { t.mpegts.destroy(); } catch {} t.mpegts = null; }
   if (t.ytTimer) { clearInterval(t.ytTimer); t.ytTimer = null; }
   if (t.onMsg) { window.removeEventListener('message', t.onMsg); t.onMsg = null; }
-  t.video = null; t.iframe = null; t.ready = false; t.dur = 0; t.seekRow.hidden = true; closeCfg(t);
+  t.video = null; t.iframe = null; t.ready = false; t.ytCap = null; t.ytCcOn = false; t.box.classList.remove('ytpaused', 'ytended'); t.dur = 0; t.seekRow.hidden = true; closeCfg(t);
   t.media.innerHTML = '';
 }
 
@@ -501,6 +502,7 @@ function mountYoutube(t, id) {
   f.src = `https://www.youtube.com/embed/${encodeURIComponent(id)}?${q}`;
   f.allow = 'autoplay; encrypted-media; picture-in-picture';
   t.media.appendChild(f); t.iframe = f;
+  t.el.querySelector('[data-a=cc]').hidden = false;
   t.onMsg = (e) => {
     if (e.source !== f.contentWindow) return;
     let d; try { d = JSON.parse(e.data); } catch { return; }
@@ -518,6 +520,13 @@ function mountYoutube(t, id) {
       updateProgress(t, t.ytCur || 0, t.ytDur || 0);
     }
     if (d.info) liveState(t);
+    if (d.event === 'apiInfoDelivery' && d.info && d.info.captions) ytCapInfo(t, d.info.captions);
+    if (d.info && d.info.playerState !== undefined) {
+      // paused or ended, YouTube shows a "More videos" strip / end screen; cover it (see .ytcover in style.css)
+      const st = d.info.playerState;
+      t.box.classList.toggle('ytpaused', st === 2); t.box.classList.toggle('ytended', st === 0);
+      if (st === 0 && !t.paused) { t.paused = true; setPlayIcon(t); }
+    }
     if (d.event === 'onError') {
       // embedding disabled by the uploader: fall back to extracting the raw stream
       if (!t.triedDirect) { t.triedDirect = true; t.pref = ''; load(t, true); }
@@ -630,6 +639,7 @@ function action(t, a) {
     case 'cfg': return toggleCfg(t);
     case 'focus': return focusId === t.id ? exitFocus() : enterFocus(t);
     case 'cc': {
+      if (t.iframe) return ytCaption(t, t.ytCcOn ? null : undefined);
       if (t.capIdx >= 0) return setCaption(t, -1);
       const pref = (navigator.language || 'en').slice(0, 2);
       const i = t.captions.findIndex((c) => String(c.code).startsWith(pref));
@@ -643,6 +653,46 @@ function setSpeed(t, r) {
   t.speed = r;
   if (t.video) t.video.playbackRate = r;
   if (t.iframe) ytCmd(t, 'setPlaybackRate', [r]);
+}
+/* captions in YouTube's own player: driven through its (undocumented) "captions" module */
+const YT_CAPSIZE_KEY = 'splitdeck.ytcapsize';
+let ytCapSize = 0; try { ytCapSize = Number(localStorage.getItem(YT_CAPSIZE_KEY)) || 0; } catch {}
+const YT_SIZES = [[-1, 'Small'], [0, 'Normal'], [1, 'Large'], [2, 'X-Large'], [3, 'Huge']];
+function ytCapInfo(t, c) {
+  const tracks = (c.tracklist || []).slice();
+  const tr = c.track && c.track.languageCode ? c.track : null;
+  if (tr && !tracks.some((x) => x.languageCode === tr.languageCode && x.kind === tr.kind)) tracks.push(tr); // auto-generated track
+  t.ytCap = { tracks, track: tr, langs: c.translationLanguages || [] };
+  t.ytCcOn = !!tr;
+  const b = t.el.querySelector('[data-a=cc]'); if (b) b.classList.toggle('on', t.ytCcOn);
+  if (t.menu) renderCfg(t);
+}
+// tr: null = off, undefined = on with YouTube's pick, or { languageCode, kind, translationLanguage }
+function ytCaption(t, tr) {
+  if (tr === null) { ytCmd(t, 'unloadModule', ['captions']); t.ytCcOn = false; if (t.ytCap) t.ytCap.track = null; }
+  else {
+    if (!t.ytCcOn) ytCmd(t, 'loadModule', ['captions']);
+    if (tr) ytCmd(t, 'setOption', ['captions', 'track', tr]);
+    ytCmd(t, 'setOption', ['captions', 'fontSize', ytCapSize]);
+    t.ytCcOn = true; if (tr && t.ytCap) t.ytCap.track = tr;
+  }
+  const b = t.el.querySelector('[data-a=cc]'); if (b) b.classList.toggle('on', t.ytCcOn);
+}
+function ytCaptionMenu(t, sec) {
+  const cap = t.ytCap, cur = cap && cap.track, same = (a, b) => a && b && a.languageCode === b.languageCode && (a.kind || '') === (b.kind || '');
+  const label = (x) => { const n = x.languageName || x.languageCode; return n + (x.kind === 'asr' && !/auto/i.test(n) ? ' (auto)' : ''); };
+  const chips = [{ label: 'Off', on: !t.ytCcOn, fn: () => ytCaption(t, null) }];
+  if (cap && cap.tracks.length) cap.tracks.forEach((x) => chips.push({ label: label(x), on: t.ytCcOn && same(cur, x), fn: () => ytCaption(t, { languageCode: x.languageCode, kind: x.kind || '' }) }));
+  else chips.push({ label: 'On', on: t.ytCcOn, fn: () => ytCaption(t) });
+  sec('Captions', chips);
+  if (!t.ytCcOn || !cur || !cap.langs.length) return;
+  // translate into the browser's languages (YouTube's full list is 100+ languages)
+  const tl = cur.translationLanguage && cur.translationLanguage.languageCode;
+  const want = [...new Set((navigator.languages || [navigator.language || 'en']).map((l) => l.slice(0, 2)).concat('en', tl || []))];
+  const langs = want.map((c) => cap.langs.find((l) => l.languageCode === c)).filter((l) => l && l.languageCode !== cur.languageCode);
+  if (langs.length) sec('Translate captions', [{ label: 'Original', on: !tl, fn: () => ytCaption(t, { languageCode: cur.languageCode, kind: cur.kind || '' }) },
+    ...langs.map((l) => ({ label: l.languageName, on: tl === l.languageCode, fn: () => ytCaption(t, { languageCode: cur.languageCode, kind: cur.kind || '', translationLanguage: { languageCode: l.languageCode, languageName: l.languageName } }) }))]);
+  sec('Caption size', YT_SIZES.map(([v, n]) => ({ label: n, on: ytCapSize === v, fn: () => { ytCapSize = v; try { localStorage.setItem(YT_CAPSIZE_KEY, String(v)); } catch {} tiles.forEach((o) => { if (o.iframe && o.ytCcOn) ytCmd(o, 'setOption', ['captions', 'fontSize', v]); }); } })));
 }
 /* ---------------- caption style (applies to every player, saved in this browser) ---------------- */
 const CAP_KEY = 'splitdeck.capstyle';
@@ -726,7 +776,8 @@ function renderCfg(t) {
     sec('Quality', [{ label: 'Auto' + cur, on: h.autoLevelEnabled, fn: () => { h.currentLevel = -1; } },
       ...lv.map((x) => ({ label: x.h + 'p', on: !h.autoLevelEnabled && h.currentLevel === x.i, fn: () => { h.currentLevel = x.i; } }))]);
   }
-  if (t.captions && t.captions.length) {
+  if (t.iframe && isYt) ytCaptionMenu(t, sec);
+  else if (t.captions && t.captions.length) {
     sec('Captions', [{ label: 'Off', on: t.capIdx < 0, fn: () => setCaption(t, -1) }, ...t.captions.map((c, i) => ({ label: c.name, on: t.capIdx === i, fn: () => setCaption(t, i) }))]);
     // its own heading, so it is not mistaken for one more language
     sec('Caption style', [{ label: t.capStyleOpen ? '▾ Hide style options' : '▸ Size, color, font, position', on: false, fn: () => { t.capStyleOpen = !t.capStyleOpen; } }]);
