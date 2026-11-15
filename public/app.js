@@ -447,8 +447,24 @@ function mountVideo(t, data, i = 0) {
   });
   [...v.textTracks].forEach((x) => { x.mode = 'disabled'; }); // captions start off, like YouTube
   v.playbackRate = t.speed || 1;
-  v.addEventListener('playing', () => setStatus(t, 'ok'));
-  v.addEventListener('waiting', () => { if (!v.paused && v.readyState < 3) setStatus(t, 'loading', 'Buffering…'); });
+  // a live stream stuck buffering for 10s is reconnected (at most twice in a row)
+  let stallT = null;
+  v.addEventListener('playing', () => {
+    setStatus(t, 'ok'); clearTimeout(stallT);
+    const v0 = v; setTimeout(() => { if (t.video === v0 && !v0.paused && v0.readyState >= 3) t.stallTries = 0; }, 30000); // played a while: fresh tries
+  });
+  v.addEventListener('waiting', () => {
+    if (v.paused || v.readyState >= 3) return;
+    setStatus(t, 'loading', 'Buffering…');
+    clearTimeout(stallT);
+    if (t.live) stallT = setTimeout(() => {
+      if (t.video !== v || v.paused || v.readyState >= 3) return;
+      // give up after 2 reconnects: a stream that sends nothing would otherwise be rebuilt every few seconds forever
+      t.stallTries = (t.stallTries || 0) + 1;
+      if (t.stallTries > 2) { destroyMedia(t); setStatus(t, 'err', 'Stream stalled or offline (⟳ to try again)'); return; }
+      setStatus(t, 'loading', 'Reconnecting…'); load(t);
+    }, 10000);
+  });
   v.addEventListener('canplay', () => setStatus(t, 'ok'));
   const prog = () => updateProgress(t, v.currentTime, v.duration);
   v.addEventListener('timeupdate', prog); v.addEventListener('durationchange', prog);
@@ -463,7 +479,11 @@ function mountVideo(t, data, i = 0) {
 
   if (src.type === 'hls') {
     if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3, maxBufferLength: 20, backBufferLength: t.live ? 180 : 30 });
+      // AAC audio is announced to the browser as plain AAC (mp4a.40.2). By default hls.js announces it as HE-AAC in
+      // Chrome-based browsers, which made TikTok LIVE sound "robotic" a few seconds after starting. Together with this
+      // setting, vendor/hls.min.js is patched (the "/vivaldi/i.test(l)" check in its ADTS parser is replaced by !0,
+      // so every browser gets the plain-AAC path that hls.js already uses for Vivaldi). Keep both when updating hls.js.
+      const hls = new Hls({ defaultAudioCodec: 'mp4a.40.2', lowLatencyMode: true, liveSyncDurationCount: 3, maxBufferLength: 20, backBufferLength: t.live ? 180 : 30 });
       t.hls = hls;
       hls.loadSource(src.url); hls.attachMedia(v);
       hls.on(Hls.Events.MANIFEST_PARSED, start);
@@ -611,7 +631,7 @@ function action(t, a) {
   switch (a) {
     case 'close': return removeTile(t);
     case 'chat': return toggleChat(t);
-    case 'reload': return load(t);
+    case 'reload': t.stallTries = 0; return load(t);
     case 'fit': t.fill = !t.fill; t.box.classList.toggle('fill', t.fill); return save();
     case 'fs':
       if (document.fullscreenElement) return document.exitFullscreen();
@@ -1023,7 +1043,7 @@ function setupDnD(t) {
 /* ---------------- UI wiring ---------------- */
 function replaceTile(t, u) {
   closeChat(t); destroyMedia(t);
-  t.url = u; t.title = u; t.pref = ''; t.triedDirect = false; t.ended = false;
+  t.url = u; t.title = u; t.pref = ''; t.triedDirect = false; t.ended = false; t.stallTries = 0;
   t.el.querySelector('.lnk').href = /^https?:\/\//i.test(u) ? u : 'https://' + u;
   t.ttl.textContent = u;
   load(t); save();
@@ -1103,7 +1123,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen().catch(() => {});
-  } else if (k === 'r') { e.preventDefault(); if (tiles.length) { tiles.forEach((t) => load(t)); toast('Reloading all players'); } }
+  } else if (k === 'r') { e.preventDefault(); if (tiles.length) { tiles.forEach((t) => { t.stallTries = 0; load(t); }); toast('Reloading all players'); } }
   else if (k === 'l') {
     e.preventDefault();
     if (layoutBtn.disabled) return toast('Layouts need 2 or more players');
@@ -1111,7 +1131,11 @@ document.addEventListener('keydown', (e) => {
   }
 });
 const topbar = $('#topbar');
-$('#edge').addEventListener('mouseenter', () => { topbar.classList.add('reveal'); document.body.classList.add('revealed'); });
+// the bar comes down only when the mouse rests at the very top edge for a moment, so passing over it on the
+// way to a player's buttons (full screen, ⟳, ✕…) does not cover them
+let edgeT;
+$('#edge').addEventListener('mouseenter', () => { clearTimeout(edgeT); edgeT = setTimeout(() => { topbar.classList.add('reveal'); document.body.classList.add('revealed'); }, 350); });
+$('#edge').addEventListener('mouseleave', () => clearTimeout(edgeT));
 topbar.addEventListener('mouseleave', () => { topbar.classList.remove('reveal'); document.body.classList.remove('revealed'); });
 const syncTop = () => document.documentElement.style.setProperty('--top', topbar.offsetHeight + 'px');
 new ResizeObserver(syncTop).observe(topbar);

@@ -103,7 +103,8 @@ body.uiwake #showUiBtn { opacity: .55; }
 #showUiBtn:hover, body.uiwake #showUiBtn:hover { opacity: 1; background: #000d; }
 body.immersive #showUiBtn { display: block; }
 body.revealed #showUiBtn { display: none; }
-#edge { height: 20px; }
+/* a thin strip at the very top: the player buttons just below it must not bring the bar down */
+#edge { height: 4px; }
 
 /* seek bar (non-live media) */
 .hud.bot { flex-wrap: wrap; }

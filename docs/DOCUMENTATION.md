@@ -96,7 +96,7 @@ Click **Hide UI** (or press **H**) to hide the top bar. To bring it back:
 
 - move the mouse (or tap the screen) and click the **Show UI** button that appears in the top-right corner; it fades out again after a few seconds without movement, or
 - press **H** or **Esc**, or
-- move the mouse to the very top edge of the window, or
+- move the mouse to the very top edge of the window and hold it there for a moment, or
 - press **/** (also focuses the link box).
 
 ## 5. Layouts and resizing
@@ -540,6 +540,8 @@ SplitDeck/
 | No sound | Players after the first start muted. Use a player's speaker, **Unmute all**, or **Solo**. Browsers may also block sound until you click the page. |
 | A YouTube video shows YouTube's overlays | YouTube's own player is the default. For a player without them, choose **⚙ → Player → Clean player**. |
 | Captions button missing | The video has no captions. |
+| A live stream shows *Stream stalled or offline* | It stopped sending video and two automatic reconnects did not help. Press **⟳** to try again; adding a new link replaces it. |
+| Sound turns "robotic" a few seconds after a stream starts | Fixed: hls.js used to announce the audio as HE-AAC in Chrome-based browsers. If it comes back after updating hls.js, see the comment above `new Hls(` in `public/app.js`. |
 | A Facebook link shows "Video unavailable" | The video is private, removed or not public. The embedded player can only show public videos. |
 | An X or Facebook link needs a login | Add a `cookies.txt` (see [Facebook and logins](#facebook-and-logins)) and restart. |
 | The link finder shows no results | The page probably loads its video with JavaScript, or protects it. The finder only reads source text. Try **Try the page link itself**. |
