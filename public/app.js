@@ -550,6 +550,7 @@ function mountYoutube(t, id) {
       const st = d.info.playerState;
       t.box.classList.toggle('ytpaused', st === 2); t.box.classList.toggle('ytended', st === 0);
       if (st === 0 && !t.paused) { t.paused = true; setPlayIcon(t); }
+      if (st === 1 && t.ytCcWant === false) ytCmd(t, 'unloadModule', ['captions']); // YouTube reloads them on play
     }
     if (d.event === 'onError') {
       // embedding disabled by the uploader: fall back to extracting the raw stream
@@ -688,11 +689,14 @@ function ytCapInfo(t, c) {
   if (tr && !tracks.some((x) => x.languageCode === tr.languageCode && x.kind === tr.kind)) tracks.push(tr); // auto-generated track
   t.ytCap = { tracks, track: tr, langs: c.translationLanguages || [] };
   t.ytCcOn = !!tr;
+  // turned off here, but YouTube switched them back on (it does when playback resumes): off again
+  if (tr && t.ytCcWant === false) { ytCmd(t, 'unloadModule', ['captions']); t.ytCcOn = false; t.ytCap.track = null; }
   const b = t.el.querySelector('[data-a=cc]'); if (b) b.classList.toggle('on', t.ytCcOn);
   if (t.menu) renderCfg(t);
 }
 // tr: null = off, undefined = on with YouTube's pick, or { languageCode, kind, translationLanguage }
 function ytCaption(t, tr) {
+  t.ytCcWant = tr !== null; // remembered for this player, so YouTube cannot turn captions back on by itself
   if (tr === null) { ytCmd(t, 'unloadModule', ['captions']); t.ytCcOn = false; if (t.ytCap) t.ytCap.track = null; }
   else {
     if (!t.ytCcOn) ytCmd(t, 'loadModule', ['captions']);

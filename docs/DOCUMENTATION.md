@@ -348,7 +348,7 @@ Switch any time with **⚙ → Player**. The **clean player** has no logo, no su
 In YouTube's player, SplitDeck's menu offers:
 
 - **Volume and mute**, **speed**, the seek bar and the **● LIVE** button on live streams.
-- **Captions**: Off, or any language the video has. YouTube draws them itself, so the caption style below does not apply. Instead there is **Translate captions** (into your browser's languages and English) and **Caption size**, which is remembered in this browser.
+- **Captions**: Off, or any language the video has. YouTube may switch them on by itself (from your YouTube settings); once you turn them off they stay off for that player, even after pausing and playing. YouTube draws them itself, so the caption style below does not apply. Instead there is **Translate captions** (into your browser's languages and English) and **Caption size**, which is remembered in this browser.
 - No **quality** choice: YouTube removed that from its embedded player, so it picks the quality from the player size and your connection.
 
 When paused, YouTube's **More videos** strip is covered, and when a video ends its screen of other videos is replaced by *Video ended*; press ▶ to watch it again. The captions part uses commands YouTube does not document, so a YouTube update could break it.
