@@ -586,6 +586,18 @@ function applyAudio(t) {
   }
   if (t.iframe) { ytCmd(t, 'setVolume', [Math.round(t.vol * 100)]); ytCmd(t, t.muted ? 'mute' : 'unMute'); }
 }
+let fsMutes = null; // mute state of every player before one of them went full screen
+function soloFull(t) {
+  if (!fsMutes) fsMutes = new Map(tiles.map((o) => [o, o.muted]));
+  tiles.forEach((o) => { o.muted = o !== t; if (!o.muted && o.vol === 0) o.vol = 0.6; applyAudio(o); applyAudioUI(o); });
+}
+document.addEventListener('fullscreenchange', () => {
+  const el = document.fullscreenElement, t = el && tiles.find((o) => o.box === el);
+  if (t) return soloFull(t); // switched straight to another player
+  if (!fsMutes) return;
+  fsMutes.forEach((m, o) => { if (tiles.includes(o)) { o.muted = m; applyAudio(o); applyAudioUI(o); } });
+  fsMutes = null; save();
+});
 function applyAudioUI(t) {
   t.volEl.value = t.muted ? 0 : t.vol;
   t.muteBtn.textContent = t.muted || t.vol === 0 ? ICON.mute : ICON.vol;
@@ -638,8 +650,9 @@ function action(t, a) {
     case 'reload': t.stallTries = 0; return load(t);
     case 'fit': t.fill = !t.fill; t.box.classList.toggle('fill', t.fill); return save();
     case 'fs':
-      if (document.fullscreenElement) return document.exitFullscreen();
-      if (t.box.requestFullscreen) return t.box.requestFullscreen();
+      if (document.fullscreenElement === t.box) return document.exitFullscreen();
+      // full screen one player = hear only it; the earlier mute states come back when full screen ends
+      if (t.box.requestFullscreen) return t.box.requestFullscreen().then(() => soloFull(t)).catch(() => {});
       if (t.video && t.video.webkitEnterFullscreen) return t.video.webkitEnterFullscreen();
       return;
     case 'mute':

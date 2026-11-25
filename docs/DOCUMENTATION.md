@@ -142,7 +142,7 @@ Hover a player to show its controls (on a touch screen, tap it). They fade after
 | **★ Main** | Moves this player to the main position. |
 | **⤢** | Switches between *fit* (whole picture visible) and *fill* (crops to fill the player). |
 | **⟳** | Reloads the player. |
-| **⛶** | Fullscreen for this player. Double-clicking the video does the same. |
+| **⛶** | Fullscreen for this player. Double-clicking the video does the same. While it is full screen only this player has sound; the others' sound comes back as it was when you leave. |
 | **▣** | **Focus:** shows only this player, full size, with sound. See [Focusing one player](#focusing-one-player). |
 | **💬** | Shows or hides the chat. See [Chat](#chat). |
 | **✕** | Closes the player. |
@@ -412,7 +412,7 @@ Each player shows its number (1–8) in its top bar, after **↗**. Press a numb
 
 | Key | Action on that player |
 |---|---|
-| **F** | Full screen this player (press **F** again to leave). |
+| **F** | Full screen this player with only its sound on (press its number and **F** again, or **Esc**, to leave; the other players' sound comes back as it was). |
 | **M** | Mute or unmute it. |
 | **S** | Solo: hear only this one. |
 | **P** or **Space** | Pause or play. |
