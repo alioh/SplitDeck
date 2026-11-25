@@ -15,7 +15,7 @@ SplitDeck is a small local web app. A Node.js server runs on your computer and s
    - [6c. Sign-ins for restricted streams](#6c-sign-ins-for-restricted-streams)
 7. [The Live browser](#7-the-live-browser)
 8. [YouTube: clean player and YouTube's player](#8-youtube-clean-player-and-youtubes-player)
-9. [Saved data and reset](#9-saved-data-and-reset)
+9. [Saved data](#9-saved-data)
 10. [Keyboard shortcuts](#10-keyboard-shortcuts)
 11. [Supported sites](#11-supported-sites)
 12. [Configuration](#12-configuration)
@@ -76,7 +76,7 @@ The first player you add has sound. Later players start muted so they do not tal
 
 ### Top bar
 
-**+ Add**, **Find** and **Live** sit together on the left; the layout, mute, reset and hide controls are on the right. On a phone the first row holds the link box, **+ Add**, **Find** and **Live**, and the second row holds the rest.
+**+ Add**, **Find** and **Live** sit together on the left; the layout, mute, close, refresh, help and hide controls are on the right. On a phone the first row holds the link box, **+ Add**, **Find** and **Live**, and the second row holds the rest.
 
 | Control | What it does |
 |---|---|
@@ -86,8 +86,9 @@ The first player you add has sound. Later players start muted so they do not tal
 | Counter (`3 / 8`) | Players in use. |
 | **Layout** | Choose an arrangement ([section 5](#5-layouts-and-resizing)). |
 | **Mute all** / **Unmute all** (speaker) | Mutes every player. When everything is muted the button turns red and says **Unmute all**, which turns the sound back on only for the players that had it before you muted. If they were all muted already, it turns on every player. |
-| **Close all** (✕) | Closes every player after asking you to confirm. Layouts and divider sizes are kept; **Reset** clears those too. |
-| **Reset** | Closes everything and starts fresh ([section 9](#9-saved-data-and-reset)). |
+| **Close all** (✕) | Closes every player after asking you to confirm. Layouts and divider sizes are kept. |
+| **Refresh all** (⟳) | Reloads every player, like pressing **⟳** on each one. |
+| **Help** (?) | Opens a panel with the keyboard shortcuts and a short description of the app. |
 | **Hide UI** | Hides the top bar so only video remains. |
 
 ### Hiding the interface
@@ -167,7 +168,7 @@ Click the **▣** button in a player's top-right controls (just left of **✕**)
 
 To return, use any of these: the **Back to grid** button, **Esc**, the **▣** button again (it is lit while focused), or the browser's or phone's **Back** button. The grid, the layout, your divider sizes and each player's earlier mute state come back exactly as they were.
 
-Adding a player or using **Reset** also returns to the grid. Closing the focused player returns to the grid too. Resize handles are hidden while a player is focused.
+Adding a player or using **Close all** also returns to the grid. Closing the focused player returns to the grid too. Resize handles are hidden while a player is focused.
 
 ### Bottom bar of a player
 
@@ -370,7 +371,7 @@ In a player's **⚙** menu, under **Caption style**, click **▸ Size, color, fo
 
 One style applies to every player and is remembered in this browser. **Reset caption style** goes back to the defaults. The style applies to SplitDeck's own players (the clean YouTube player and other videos with captions), not to YouTube's own embedded player, which has its own caption settings.
 
-## 9. Saved data and reset
+## 9. Saved data
 
 SplitDeck remembers your session in the browser's `localStorage`:
 
@@ -386,7 +387,7 @@ SplitDeck remembers your session in the browser's `localStorage`:
 
 When you reopen the page, the same players are added again and start playing.
 
-**Reset** closes all players, clears the saved list and resets layouts and divider sizes. It does not clear the language filter.
+**Close all** empties the saved list. Layouts and divider sizes stay; double-click a divider to reset that split.
 
 Data is stored per browser and per address. Using a different browser, or a different port, starts empty.
 
@@ -402,7 +403,24 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | **R** | Reload every player (same as **⟳** on each one). **Ctrl+R** still reloads the page. |
 | **L** | Open the layout options (needs 2 or more players). |
 | **C** | Close all players (asks first, same as **Close all**). |
+| **?** | Open or close the help panel. |
 | **Enter** (in the link box) | Add the link. |
+
+### One player: its number, then a key
+
+Each player shows its number (1–8) in its top bar, after **↗**. Press a number and the player is outlined with its number shown large; then, within 2 seconds, press:
+
+| Key | Action on that player |
+|---|---|
+| **F** | Full screen this player (press **F** again to leave). |
+| **M** | Mute or unmute it. |
+| **S** | Solo: hear only this one. |
+| **P** or **Space** | Pause or play. |
+| **R** | Reload it. |
+| **Enter** | Focus: show only this player. |
+| **C** | Close it. |
+
+For example, **2** then **F** puts player 2 in full screen. **Esc** cancels the choice. Numbers follow the players' order, so they change when you swap or close players.
 
 The letter shortcuts do nothing while you type in a box. They also don't work right after you click inside a YouTube or other embedded player, because the player then has the keyboard; click an empty spot or the top bar first.
 
@@ -550,7 +568,7 @@ SplitDeck/
 | It says TikTok did not accept your sign-in | The sign-in has expired, or the account is not 18+. Export and paste a fresh one. |
 | The Sign-ins button is missing | The server was started with `DISABLE_SIGNIN=1`, or you are opening SplitDeck from outside your computer or home network. |
 | A TikTok LIVE says it is live but did not share its video | The LIVE is restricted in another way (for example followers or subscribers only, or a region). A sign-in from an account that can watch it may help. |
-| Everything is stuck or wrong | Click **Reset**, then press **Ctrl+F5**. |
+| Everything is stuck or wrong | Click **Refresh all**; if that does not help, **Close all**, then press **Ctrl+F5**. |
 
 ## 17. Limitations
 

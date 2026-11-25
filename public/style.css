@@ -63,6 +63,19 @@ body.dragging .dropzone { display: flex; }
 .hud button:hover { background: #000d; border-color: #fff5; }
 .hud button.on { background: var(--accent); border-color: var(--accent); }
 .grip { cursor: grab; padding: 4px 7px !important; letter-spacing: -2px; }
+/* player number (keyboard: press it, then a key) */
+.tnum { flex: none; min-width: 22px; text-align: center; font-weight: 700; font-size: 12px; background: #0009; border: 1px solid #ffffff33; border-radius: 7px; padding: 3px 6px; line-height: 1.2; }
+.box.picked { outline: 3px solid var(--accent); outline-offset: -3px; }
+.box.picked .hud.top { opacity: 1; }
+.pickbig { position: absolute; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; font-size: 96px; font-weight: 800; color: #fff; text-shadow: 0 2px 24px #000; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.box.picked .pickbig { opacity: .85; }
+.helpbody { padding: 4px 16px 16px; font-size: 13px; line-height: 1.5; }
+.helpbody h4 { margin: 14px 0 6px; font-size: 13px; }
+.helpbody .small { color: var(--muted, #999); font-size: 12px; }
+.keys { border-collapse: collapse; width: 100%; }
+.keys td { padding: 3px 6px 3px 0; vertical-align: top; }
+.keys td:first-child { white-space: nowrap; width: 1%; padding-right: 12px; }
+kbd { display: inline-block; min-width: 18px; text-align: center; padding: 1px 6px; border: 1px solid #ffffff40; border-bottom-width: 2px; border-radius: 5px; background: #ffffff10; font: 600 12px/1.4 ui-monospace, monospace; }
 .grip:active { cursor: grabbing; }
 .ttl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; text-shadow: 0 1px 3px #000; }
 .ttl small { font-weight: 500; color: #cfd; background: #0008; border-radius: 4px; padding: 1px 5px; margin-right: 6px; }
@@ -264,7 +277,7 @@ body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; ove
   .addform { order: 1; flex: 1 1 0; min-width: 0; max-width: none; }
   .rowbreak { display: block; order: 2; flex: 1 0 100%; height: 0; } /* forces the buttons below onto a second row */
   .count { order: 3; margin-right: auto; font-size: 14px; }
-  #inspectBtn, #liveBtn { order: 1; } .pop-wrap { order: 4; } #muteAllBtn, #closeAllBtn { order: 5; } #signinBtn { order: 5; } #resetBtn { order: 6; } #immersiveBtn { order: 7; }
+  #inspectBtn, #liveBtn { order: 1; } .pop-wrap { order: 4; } #muteAllBtn, #closeAllBtn { order: 5; } #signinBtn { order: 5; } #resetBtn, #helpBtn { order: 6; } #immersiveBtn { order: 7; }
   .topbar button { min-height: 40px; min-width: 42px; font-size: 16px; }
   .addform input { height: 42px; }
   .addform button { min-height: 42px; }

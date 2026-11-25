@@ -29,7 +29,8 @@
   <button id="muteAllBtn" title="Mute every player"><span class="ic">🔊</span><span class="lbl">Mute all</span></button>
   <button id="closeAllBtn" title="Close every player"><span class="ic">✕</span><span class="lbl">Close all</span></button>
   <button id="signinBtn" title="Sign-ins for streams that need an account" hidden><span class="ic">🔑</span><span class="lbl">Sign-ins</span></button>
-  <button id="resetBtn" title="Close all streams and start fresh"><span class="ic">↺</span><span class="lbl">Reset</span></button>
+  <button id="resetBtn" title="Reload every player (R)"><span class="ic">⟳</span><span class="lbl">Refresh all</span></button>
+  <button id="helpBtn" title="Keyboard shortcuts and help (?)"><span class="ic">?</span><span class="lbl">Help</span></button>
   <button id="immersiveBtn" title="Hide this bar (H)"><span class="ic">▭</span><span class="lbl">Hide UI</span></button>
 </header>
 <main id="stage"></main>
@@ -44,6 +45,36 @@
 <aside id="signinPanel" class="livepanel" hidden>
   <div class="lhead"><b>Sign-ins</b><span class="spacer"></span><button id="signinClose" title="Close">✕</button></div>
   <div class="llist" id="signinBody"></div>
+</aside>
+<aside id="helpPanel" class="livepanel" hidden>
+  <div class="lhead"><b>Help</b><span class="spacer"></span><button id="helpClose" title="Close">✕</button></div>
+  <div class="llist helpbody">
+    <p>SplitDeck plays up to 8 streams or videos side by side: YouTube, TikTok LIVE, Twitch, Kick, X, Facebook and most sites yt-dlp supports. Paste a link and press Enter. Hover a player for its controls; <b>📡 Live</b> lists live channels, <b>🔎 Find</b> looks for stream links in a page.</p>
+    <h4>Whole page</h4>
+    <table class="keys">
+      <tr><td><kbd>M</kbd></td><td>Mute all / bring back the sound</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Page full screen (like F11)</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Refresh all players</td></tr>
+      <tr><td><kbd>C</kbd></td><td>Close all players</td></tr>
+      <tr><td><kbd>L</kbd></td><td>Layout options</td></tr>
+      <tr><td><kbd>H</kbd></td><td>Hide / show the top bar</td></tr>
+      <tr><td><kbd>/</kbd></td><td>Go to the link box</td></tr>
+      <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Back to the grid, close panels</td></tr>
+    </table>
+    <h4>One player: its number, then a key</h4>
+    <p class="small">Each player shows its number at the top left. Press the number (1–8), then within 2 seconds:</p>
+    <table class="keys">
+      <tr><td><kbd>F</kbd></td><td>Full screen this player</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Mute / unmute it</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Solo: hear only this one</td></tr>
+      <tr><td><kbd>P</kbd> or <kbd>Space</kbd></td><td>Pause / play</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Reload it</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Focus: show only this player</td></tr>
+      <tr><td><kbd>C</kbd></td><td>Close it</td></tr>
+    </table>
+    <p class="small">Example: <kbd>2</kbd> then <kbd>F</kbd> puts player 2 in full screen. Keys don't work while you type in a box, or right after clicking inside a YouTube or other embedded player (click an empty spot first).</p>
+  </div>
 </aside>
 <aside id="inspect" class="livepanel" hidden>
   <div class="lhead"><b>Find stream links</b><span class="spacer"></span><button id="inspClose" title="Close">✕</button></div>

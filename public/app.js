@@ -135,6 +135,7 @@ let dividerEls = [];
 const FULL_RECT = { x: 0, y: 0, w: 1, h: 1 };
 function applyLayout(rebuildPop = true) {
   const n = tiles.length;
+  tiles.forEach((t, i) => { t.el.querySelector('.tnum').textContent = i + 1; t.el.querySelector('.pickbig').textContent = i + 1; });
   emptyEl.hidden = n > 0;
   countEl.textContent = `${n} / ${MAX}`;
   addBtn.disabled = n >= MAX;
@@ -237,6 +238,7 @@ function createTile(url, opts = {}) {
       <div class="hud top">
         <button class="grip" draggable="true" title="Drag onto another player to swap places">⋮⋮</button>
         <a class="lnk" target="_blank" rel="noopener noreferrer" title="Open the original page in a new tab">↗</a>
+        <span class="tnum" title="Player number: press it, then a key (? for the list)"></span>
         <div class="ttl"></div>
         <button data-a="main" title="Make this the main (first) player">★ Main</button>
         <button data-a="fit" title="Fit / fill">⤢</button>
@@ -256,6 +258,7 @@ function createTile(url, opts = {}) {
         <button data-a="cc" hidden title="Captions on/off">CC</button>
         <button data-a="cfg" title="Settings: speed, quality, captions, audio">⚙</button>
       </div>
+      <div class="pickbig"></div>
       <div class="dropzone">Swap here</div>
     </div>`;
   t.el = el;
@@ -1112,28 +1115,51 @@ document.addEventListener('keydown', (e) => {
   if (e.target === input) { if (e.key === 'Escape') input.blur(); return; }
   if (e.key === 'h' || e.key === 'H') setImmersive(!document.body.classList.contains('immersive'));
   if (e.key === 'Escape') {
-    const panelOpen = !liveEl.hidden || !insEl.hidden || !signinEl.hidden, immersive = document.body.classList.contains('immersive');
+    if (picked) return unpick();
+    const panelOpen = !liveEl.hidden || !insEl.hidden || !signinEl.hidden || !helpEl.hidden, immersive = document.body.classList.contains('immersive');
     if (focusId !== null && !panelOpen && !immersive) { exitFocus(); return; }
-    setImmersive(false); openLive(false); openInspect(false); openSignin(false);
+    setImmersive(false); openLive(false); openInspect(false); openSignin(false); openHelp(false);
   }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
   // single-letter shortcuts: not while typing somewhere, and not with Ctrl/Cmd/Alt (so Ctrl+R still reloads the page)
   if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
   const k = e.key.toLowerCase();
+  if (k === '?') { e.preventDefault(); return openHelp(helpEl.hidden); }
+  // a player's number picks it for the next key (2 then F = player 2 full screen)
+  if (/^[1-8]$/.test(e.key)) {
+    e.preventDefault();
+    const t = tiles[Number(e.key) - 1];
+    if (!t) { unpick(); return toast('There is no player ' + e.key); }
+    return pick(t);
+  }
+  if (picked) {
+    const t = picked, map = { f: 'fs', m: 'mute', s: 'solo', p: 'play', ' ': 'play', r: 'reload', c: 'close', enter: 'focus' };
+    const a = map[k];
+    unpick();
+    if (a && tiles.includes(t)) { e.preventDefault(); action(t, a); }
+    return;
+  }
   if (k === 'm') { e.preventDefault(); if (tiles.length) $('#muteAllBtn').click(); }
   else if (k === 'c') { e.preventDefault(); $('#closeAllBtn').click(); } // asks first, like the button
   else if (k === 'f') { // the whole page full screen, like F11
     e.preventDefault();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen().catch(() => {});
-  } else if (k === 'r') { e.preventDefault(); if (tiles.length) { tiles.forEach((t) => { t.stallTries = 0; load(t); }); toast('Reloading all players'); } }
+  } else if (k === 'r') { e.preventDefault(); refreshAll(); }
   else if (k === 'l') {
     e.preventDefault();
     if (layoutBtn.disabled) return toast('Layouts need 2 or more players');
     setImmersive(false); layoutPop.hidden = !layoutPop.hidden;
   }
 });
+// picking a player by its number: outlined with its number shown big for 2 seconds, or until the next key
+let picked = null, pickT;
+function pick(t) {
+  unpick(); picked = t; t.box.classList.add('picked');
+  pickT = setTimeout(unpick, 2000);
+}
+function unpick() { clearTimeout(pickT); if (picked) picked.box.classList.remove('picked'); picked = null; }
 const topbar = $('#topbar');
 // the bar comes down only when the mouse rests at the very top edge for a moment, so passing over it on the
 // way to a player's buttons (full screen, ⟳, ✕…) does not cover them
@@ -1415,7 +1441,7 @@ function loadFollowing(my) {
   liveList.appendChild(vbox);
 }
 
-function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; signinEl.hidden = true; loadLive(); } }
+function openLive(on = true) { liveEl.hidden = !on; if (on) { insEl.hidden = true; signinEl.hidden = true; helpEl.hidden = true; loadLive(); } }
 $('#liveBtn').onclick = (e) => { e.stopPropagation(); openLive(liveEl.hidden); };
 $('#liveClose').onclick = () => openLive(false);
 $('#liveRefresh').onclick = () => loadLive();
@@ -1430,7 +1456,7 @@ $('#liveTabs').onclick = (e) => {
 const insEl = $('#inspect'), insForm = $('#inspForm'), insList = $('#inspList'), insInput = insForm.querySelector('input');
 function openInspect(on = true) {
   insEl.hidden = !on;
-  if (on) { liveEl.hidden = true; signinEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
+  if (on) { liveEl.hidden = true; signinEl.hidden = true; helpEl.hidden = true; setTimeout(() => insInput.focus(), 50); }
 }
 $('#inspectBtn').onclick = (e) => { e.stopPropagation(); openInspect(insEl.hidden); };
 $('#inspClose').onclick = () => openInspect(false);
@@ -1558,7 +1584,7 @@ function parseCookieText(text, site) {
 function openSignin(on = true, focusKey) {
   signinEl.hidden = !on;
   if (on) {
-    liveEl.hidden = true; insEl.hidden = true; renderSignin();
+    liveEl.hidden = true; insEl.hidden = true; helpEl.hidden = true; renderSignin();
     if (focusKey) { const ta = signinBody.querySelector('[data-k="' + focusKey + '"] textarea'); if (ta) setTimeout(() => ta.focus(), 50); }
   }
 }
@@ -1607,18 +1633,19 @@ function retrySiteTiles(key) { tiles.forEach((t) => { if (siteKeyOf(t.url) === k
 fetch('/api/config').then((r) => r.json()).then((c) => { signinAllowed = !!c.signin; signinBtn.hidden = !signinAllowed; }).catch(() => {})
   .then(() => { followPoll(); setInterval(followPoll, 120000); }); // track followed channels while the app is open
 
-/* ---------------- reset ---------------- */
-$('#resetBtn').onclick = () => {
-  if (tiles.length && !confirm('Close all streams and start fresh?')) return;
-  if (focusId !== null) exitFocus();
-  tiles.slice().forEach((t) => { closeChat(t); destroyMedia(t); t.el.remove(); });
-  tiles.length = 0;
-  Object.keys(layoutPref).forEach((k) => delete layoutPref[k]);
-  Object.keys(ratioStore).forEach((k) => delete ratioStore[k]);
-  Object.keys(layoutCache).forEach((k) => delete layoutCache[k]);
-  applyLayout(); updateMuteAll();
-  try { localStorage.removeItem('splitdeck.v2'); } catch {}
-};
+/* ---------------- refresh all ---------------- */
+function refreshAll() {
+  if (!tiles.length) return;
+  tiles.forEach((t) => { t.stallTries = 0; load(t); });
+  toast('Reloading all players');
+}
+$('#resetBtn').onclick = refreshAll;
+
+/* ---------------- help ---------------- */
+const helpEl = $('#helpPanel');
+function openHelp(on = true) { helpEl.hidden = !on; if (on) { liveEl.hidden = true; insEl.hidden = true; signinEl.hidden = true; } }
+$('#helpBtn').onclick = (e) => { e.stopPropagation(); openHelp(helpEl.hidden); };
+$('#helpClose').onclick = () => openHelp(false);
 
 /* ---------------- restore ---------------- */
 try {
