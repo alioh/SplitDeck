@@ -399,6 +399,7 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | **Esc** | Go back to the grid from a focused player; otherwise show the top bar and close the open panel. |
 | **/** | Show the top bar and focus the link box. |
 | **M** | Mute all players; press again to bring back the sound of the ones that had it (same as **Mute all** / **Unmute all**). |
+| **+** / **-** | Turn the volume up or down by 10% on every player that has sound on (hold the key to keep going). Muted players are left alone. |
 | **F** | Make the whole page full screen, like F11; press again to leave. |
 | **R** | Reload every player (same as **⟳** on each one). **Ctrl+R** still reloads the page. |
 | **L** | Open the layout options (needs 2 or more players). |
@@ -415,6 +416,7 @@ Each player shows its number (1–8) in its top bar, after **↗**. Press a numb
 | **F** | Full screen this player with only its sound on (press its number and **F** again, or **Esc**, to leave; the other players' sound comes back as it was). |
 | **M** | Mute or unmute it. |
 | **S** | Solo: hear only this one. |
+| **+** / **-** | Turn its volume up or down by 10%. Keep pressing to go further: the player stays chosen. **+** on a muted player turns its sound on from silent. |
 | **P** or **Space** | Pause or play. |
 | **R** | Reload it. |
 | **Enter** | Focus: show only this player. |

@@ -1135,8 +1135,12 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === '/' ) { e.preventDefault(); setImmersive(false); input.focus(); }
   // single-letter shortcuts: not while typing somewhere, and not with Ctrl/Cmd/Alt (so Ctrl+R still reloads the page)
-  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  // + and - change the volume (held down they keep going): the picked player, or every player with sound on
+  const step = { '+': 1, '=': 1, '-': -1, '_': -1 }[e.key];
+  if (step) { e.preventDefault(); return nudgeVolume(step * 0.1); }
+  if (e.repeat) return;
   const k = e.key.toLowerCase();
   if (k === '?') { e.preventDefault(); return openHelp(helpEl.hidden); }
   // a player's number picks it for the next key (2 then F = player 2 full screen)
@@ -1173,6 +1177,27 @@ function pick(t) {
   pickT = setTimeout(unpick, 2000);
 }
 function unpick() { clearTimeout(pickT); if (picked) picked.box.classList.remove('picked'); picked = null; }
+function nudgeVolume(d) {
+  let list;
+  if (picked && tiles.includes(picked)) {
+    list = [picked];
+    clearTimeout(pickT); pickT = setTimeout(unpick, 2000); // stays picked so 2 + + + keeps raising player 2
+    if (picked.muted && d > 0) { picked.muted = false; picked.vol = 0; } // + on a muted player turns it on from silent
+  } else {
+    if (picked) unpick();
+    list = tiles.filter((t) => !t.muted && t.vol > 0);
+    if (!list.length) return toast(tiles.length ? 'Every player is muted' : 'No players yet');
+  }
+  list.forEach((t) => {
+    if (t.muted) return;
+    t.vol = Math.round(Math.min(1, Math.max(0, t.vol + d)) * 10) / 10;
+    if (t.vol === 0) t.muted = true;
+    applyAudio(t); applyAudioUI(t);
+  });
+  save();
+  const v = list.length === 1 ? (list[0].muted ? 'muted' : Math.round(list[0].vol * 100) + '%') : null;
+  toast(v ? 'Player ' + (tiles.indexOf(list[0]) + 1) + ' volume: ' + v : 'Volume ' + (d > 0 ? 'up' : 'down') + ' for ' + list.length + ' players');
+}
 const topbar = $('#topbar');
 // the bar comes down only when the mouse rests at the very top edge for a moment, so passing over it on the
 // way to a player's buttons (full screen, ⟳, ✕…) does not cover them
