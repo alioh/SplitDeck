@@ -1151,9 +1151,10 @@ document.addEventListener('keydown', (e) => {
     return pick(t);
   }
   if (picked) {
-    const t = picked, map = { f: 'fs', m: 'mute', s: 'solo', p: 'play', ' ': 'play', r: 'reload', c: 'close', enter: 'focus' };
+    const t = picked, map = { f: 'fs', m: 'mute', s: 'solo', p: 'play', ' ': 'play', r: 'reload', c: 'close', l: 'golive', enter: 'focus' };
     const a = map[k];
     unpick();
+    if (a === 'golive' && !t.live) { e.preventDefault(); return toast('Player ' + (tiles.indexOf(t) + 1) + ' is not a live stream'); }
     if (a && tiles.includes(t)) { e.preventDefault(); action(t, a); }
     return;
   }
@@ -1164,7 +1165,13 @@ document.addEventListener('keydown', (e) => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen().catch(() => {});
   } else if (k === 'r') { e.preventDefault(); refreshAll(); }
-  else if (k === 'l') {
+  else if (k === 'l') { // every live stream back to the live point, like each one's LIVE button
+    e.preventDefault();
+    const lives = tiles.filter((t) => t.live);
+    if (!lives.length) return toast('No live streams open');
+    lives.forEach((t) => action(t, 'golive'));
+    toast(lives.length === 1 ? 'Back to live' : lives.length + ' streams back to live');
+  } else if (k === 'g') { // G for grid: the layout options
     e.preventDefault();
     if (layoutBtn.disabled) return toast('Layouts need 2 or more players');
     setImmersive(false); layoutPop.hidden = !layoutPop.hidden;

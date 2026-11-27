@@ -402,7 +402,8 @@ Data is stored per browser and per address. Using a different browser, or a diff
 | **+** / **-** | Turn the volume up or down by 10% on every player that has sound on (hold the key to keep going). Muted players are left alone. |
 | **F** | Make the whole page full screen, like F11; press again to leave. |
 | **R** | Reload every player (same as **⟳** on each one). **Ctrl+R** still reloads the page. |
-| **L** | Open the layout options (needs 2 or more players). |
+| **L** | Bring every live stream back to the live point, if it fell behind after a pause, a stall or slow loading (same as each player's **LIVE** button). Videos that are not live are left alone. |
+| **G** | Open the grid layout options (needs 2 or more players). |
 | **C** | Close all players (asks first, same as **Close all**). |
 | **?** | Open or close the help panel. |
 | **Enter** (in the link box) | Add the link. |
@@ -419,6 +420,7 @@ Each player shows its number (1–8) in its top bar, after **↗**. Press a numb
 | **+** / **-** | Turn its volume up or down by 10%. Keep pressing to go further: the player stays chosen. **+** on a muted player turns its sound on from silent. |
 | **P** or **Space** | Pause or play. |
 | **R** | Reload it. |
+| **L** | Back to the live point, if it fell behind (same as its **LIVE** button). |
 | **Enter** | Focus: show only this player. |
 | **C** | Close it. |
 
